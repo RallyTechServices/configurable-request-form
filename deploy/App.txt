@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Configurable Request Form</title>
+    <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
+    <!--  Build Date: Thu Aug 13 2015 11:19:34 GMT-0600 (MDT) -->
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Thu Aug 13 2015 11:19:34 GMT-0600 (MDT)";
+        var CHECKSUM = 38313550490;
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+             
+/**
+ * A link that pops up a version dialog box
+ */
+
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.tsinfolink',
+    
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+    title: "Build Information",
+    
+    defaults: { padding: 5, margin: 5 },
+
+    closable: true,
+     
+    draggable: true,
+
+    autoShow: true,
+   
+    width: 350, 
+    
+    initComponent: function() {
+        var id = Ext.id(this);
+        this.title =  "<span class='icon-help'> </span>" + this.title;
+        this.callParent(arguments);
+    },
+    
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
+        
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
+        }
+    
+        return chk;
+    },
+    
+    _checkChecksum: function(container) {
+        var deferred = Ext.create('Deft.Deferred');
+        console.log("_checkChecksum", container);
+        var me = this;
+        
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
+            },
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    if ( CHECKSUM !== me._generateChecksum(text) ) {
+                        console.log("Checksums don't match!");
+                        deferred.resolve(false);
+                        return;
+                    }
+                }
+                deferred.resolve(true);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    afterRender: function() {
+        var app = Rally.getApp();
+        
+        if (! app.isExternal() ) {
+                
+            this._checkChecksum(app).then({
+                scope: this,
+                success: function(result){
+                    if ( !result ) {
+                        this.addDocked({
+                            xtype:'container',
+                            cls: 'build-info',
+                            padding: 2,
+                            html:'<span class="icon-warning"> </span>Checksums do not match'
+                        });
+                    }
+                },
+                failure: function(msg){
+                    console.log("oops:",msg);
+                }
+            });
+        } else {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                html:'... Running externally'
+            });
+        }
+        this.callParent(arguments);
+    },
+    
+    beforeRender: function() {
+        var me = this;
+        this.callParent(arguments);
+
+        if (this.informationHtml) {
+            this.addDocked({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                padding: 2,
+                html: this.informationHtml
+            });
+        }
+        
+        this.addDocked({
+            xtype:'container',
+            cls: 'build-info',
+            padding: 2,
+            html:"This app was created by the Rally Technical Services Team."
+        });
+        
+        if ( APP_BUILD_DATE ) {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                html:'Build date/time: ' + APP_BUILD_DATE
+            });
+        }
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+Ext.define('Rally.technicalservices.AttachmentEditor',{
+    extend: 'Ext.panel.Panel',
+    alias: 'widget.tsattachmentgrid',
+    height: 200,
+    width: '100%',
+    record: undefined,
+
+    constructor: function (config) {
+        this.mergeConfig(config);
+        this.callParent([this.config]);
+    },
+    initComponent: function(){
+        this.callParent(arguments);
+
+        this._store = Ext.create('Ext.data.Store',{
+            fields: ['filename'],
+            data: []
+        });
+
+        this.add({
+            xtype: 'rallygrid',
+            columnCfgs: this._getColumnCfgs(),
+            showPagingToolbar: false,
+            showRowActionsColumn: false,
+            store: this._store,
+            emptyText: 'No Attachments',
+            hideHeaders: true
+        });
+
+        this.add({
+            xtype: 'filebutton',
+            text: 'Upload',
+            margin: 10,
+            cls: 'secondary rly-small',
+            listeners: {
+                change: this.addFile,
+                scope: this
+
+            }
+        });
+
+
+    },
+    addFile: function(button, e, value){
+        this._store.add({filename: value});
+    },
+    removeFile: function(grid, rowIndex, colIndex) {
+        // var rec = grid.getStore().getAt(rowIndex);
+        alert("Delete ");
+    },
+    _getColumnCfgs: function(){
+        var me = this;
+        return [{
+            xtype:'actioncolumn',
+            width:40,
+            items: [{
+                icon: '/slm/js-lib/rui/builds/rui/resources/css/images/trash-icon.png',
+                tooltip: 'Remove file',
+                scope: me,
+                handler: me.removeFile
+            }]
+        },{
+            dataIndex: 'filename',
+            text: 'File',
+            flex: 1,
+            renderer: function(v,m,r){
+                return v;
+            }
+        }];
+    }
+
+});
+
+(function () {
+    var Ext = window.Ext4 || window.Ext;
+
+    var userSearchComboBox = function(field, record, initToContextUser) {
+        var project = Rally.data.util.Record.getProject(record);
+        var currentUser = record.get(field.name);
+        if (_.isObject(currentUser)) {
+            currentUser = currentUser._ref;
+        }
+        if (initToContextUser && record.phantom && !currentUser) {
+            currentUser = Rally.environment.getContext().getUser()._ref;
+            record.set(field.name, currentUser);
+        }
+
+        return Ext.create('Rally.ui.combobox.UserSearchComboBox', {
+            project: project,
+            name: field.name,
+            value: currentUser,
+            bubbleEvents: ['select'],
+            triggerWrapCls: 'fullwidth',
+            plugins: [
+                {
+                    xclass: 'Rally.ui.detail.plugins.LoadingMonitor'
+                }
+            ]
+        });
+    };
+
+    var buildNumberField = function(field, record) {
+        return Ext.create('Rally.ui.NumberField', {
+            name: field.name,
+            displayName: field.displayName,
+            value: record.get(field.name),
+            labelAlign: 'right',
+            height: 30,
+            field: field,
+            hideTrigger: true,
+            clientMetrics: {
+                event: 'blur',
+                description: 'field blur'
+            }
+        });
+    };
+
+    var buildPercentDoneBy = function(percentDoneTemplateName, field, record) {
+        var tpl = Ext.create(percentDoneTemplateName);
+        return Ext.create('Ext.Component', {
+            data: record.data,
+            tpl: tpl,
+            maskOnDisable: false,
+            cls: 'percent-done',
+            listeners: {
+                afterrender: function() {
+                    var el = this.getEl();
+                    el.on('click', function() {
+                        Ext.create('Rally.ui.popover.PercentDonePopover', {
+                            target: el,
+                            percentDoneData: Ext.applyIf({
+                                Notes: "",                                      // Empty string so that NOTES section will not display
+                                Release: record.get('Release') || {},           // Avoid fetching release
+                                PortfolioItemTypeOrdinal: record.self.ordinal   // Ditto
+                            }, record.data),
+                            percentDoneName: field.name
+                        });
+                    });
+                }
+            }
+        });
+    };
+
+    var buildDisplayColorField = function (field, record) {
+        return Ext.create('Rally.ui.detail.view.DisplayColorField', {
+            field: field,
+            record: record,
+            editable: Rally.ui.detail.DetailHelper.isDetailPageFieldEditable(field, record)
+        });
+    };
+
+    var buildStateField = function (field, record) {
+        return Ext.create('Rally.ui.detail.view.StateField', {
+            field: field,
+            record: record
+        });
+    };
+
+    var buildTargetProjectEditor = function(field, record) {
+        var project = record.get(field.name);
+        if (record.phantom && project === "") {
+            project = Rally.environment.getContext().getProject();
+        }
+        return Ext.create('Rally.ui.detail.view.TargetProjectField', {
+            name: field.name,
+            milestoneRecord: record,
+            value: Rally.util.Ref.getRelativeUri(project),
+            editable: Rally.ui.MilestoneTargetProjectPermissionsHelper.canEdit(record)
+        });
+    };
+
+    var defaultAllowNoEntry = function(field, record) {
+        return !field.required || !record.get(field.name);
+    };
+
+    function constrainedComboBox(field, record, config) {
+        return Ext.widget(Ext.apply({
+            xtype: 'rallyfieldvaluecombobox',
+            name: field.name,
+            value: record.get(field.name),
+            field: field,
+            labelAlign: 'right',
+            editable: false,
+            allowNoEntry: defaultAllowNoEntry(field, record),
+            useNullForNoEntryValue: true,
+            plugins: [
+                {
+                    xclass: 'Rally.ui.detail.plugins.LoadingMonitor'
+                }
+            ]
+        }, config));
+    }
+
+    function milestoneField(field, record, readOnly) {
+        return Ext.create('Rally.ui.detail.view.MilestonesField', {
+            field: field,
+            record: record,
+            readOnly: readOnly
+        });
+    }
+
+    /**
+     * @private
+     */
+    Ext.define('Rally.technicalservices.DetailEditorFactory', {
+        requires: [
+            'Rally.data.util.Record',
+            'Rally.data.wsapi.Filter',
+            'Rally.ui.combobox.FieldValueComboBox',
+            'Rally.ui.detail.DetailHelper',
+            'Rally.ui.detail.view.DetailWebLinkField',
+            'Rally.ui.detail.view.DetailNumberField',
+            'Rally.ui.detail.view.StateField',
+            'Rally.ui.detail.view.DetailReadOnlyRefreshingField',
+            'Rally.ui.detail.view.ReadyButton',
+            'Rally.ui.renderer.template.progressbar.PercentDoneByStoryCountTemplate',
+            'Rally.ui.renderer.template.progressbar.PercentDoneByStoryPlanEstimateTemplate',
+            'Rally.ui.popover.PercentDonePopover',
+            'Rally.ui.detail.view.MilestonesField',
+            'Rally.util.Ref',
+            'Rally.ui.combobox.ProjectComboBox'
+        ],
+
+        singleton: true,
+
+        getEditor: function (field, record, item_id, margin, field_label) {
+            var editor;
+
+            if (this.fieldEditors[field.name]) {
+                editor = this.fieldEditors[field.name](field, record);
+            } else if (field.attributeDefinition && this.typeEditors[field.attributeDefinition.AttributeType.toLowerCase()]) {
+                editor = this.getEditorByType(field, record);
+            } else {
+                editor = this.defaultRenderer(field, record);
+            }
+
+            editor.disabledCls += " readonly";
+            if (!Rally.ui.detail.DetailHelper.isDetailPageFieldEditable(field, record)) {
+                editor.editable = false;
+                editor.setDisabled(true);
+            }
+            editor.addCls('detailFieldEditor');
+            editor.itemId = item_id;
+            editor.fieldLabel = field_label;
+            editor.margin = margin;
+            editor.labelAlign = 'right';
+
+            return editor;
+        },
+
+        getEditorByType: function (field, record) {
+            return this.typeEditors[field.attributeDefinition.AttributeType.toLowerCase()](field, record);
+        },
+
+        defaultRenderer: function (field, record) {
+            return Ext.create('Rally.ui.TextField', {
+                name: field.name,
+                value: record.get(field.name)
+            });
+        },
+
+        fieldEditors: {
+            Actuals: buildNumberField,
+
+            DisplayColor: buildDisplayColorField,
+
+            Estimate: buildNumberField,
+
+            //Name: function (field, record) {
+            //    return Rally.ui.detail.DetailHelper.isDetailPageFieldEditable(field, record) ?
+            //        buildNameEditor(field, record) : buildNameRenderer(field, record);
+            //},
+
+            Attachments: function(field, record){
+                return Ext.create('Rally.technicalservices.AttachmentEditor',{
+                    record: record,
+                    title: field.displayName
+                });
+            },
+
+            Iteration: function (field, record) {
+                var currentIteration = record.get(field.name);
+                return Ext.create('Rally.ui.combobox.IterationComboBox', {
+                    name: field.name,
+                    value: currentIteration,
+                    allowNoEntry: defaultAllowNoEntry(field, record),
+                    showArrows: false,
+                    defaultSelectionToFirst: true,
+                    defaultToCurrentTimebox: false,
+                    labelAlign: 'right',
+                    storeConfig: {
+                        remoteFilter: true,
+                        filters: [
+                            buildTimeboxFilter(currentIteration)
+                        ],
+                        context: {
+                            project: Rally.data.util.Record.getProject(record),
+                            projectScopeUp: false,
+                            projectScopeDown: false
+                        }
+                    },
+                    plugins: [
+                        {
+                            xclass: 'Rally.ui.detail.plugins.LoadingMonitor'
+                        }
+                    ]
+                });
+            },
+
+            Milestones: function(field, record) {
+                var readOnly = !Rally.ui.detail.DetailHelper.isDetailPageFieldEditable(field, record);
+                return milestoneField(field, record, readOnly);
+            },
+
+            Owner: function(field, record) {
+                return userSearchComboBox(field, record, record.isUserStory());
+            },
+
+            PlanEstimate: buildNumberField,
+
+            PreliminaryEstimate: function (field, record) {
+                return constrainedComboBox(field, record);
+            },
+
+            Project: function (field, record) {
+                var project = record.get(field.name);
+
+                var onlyShowEditableProjects = true;
+                // We want all projects in the list if the page is not editable. Otherwise the current project value will
+                // not be displayed for read only stories.
+                if (!Rally.ui.detail.DetailHelper.isDetailPageFieldEditable(field, record)) {
+                    onlyShowEditableProjects = false;
+                }
+
+                return Ext.create('Rally.ui.combobox.ProjectComboBox', {
+                    name: field.name,
+                    value: Rally.util.Ref.getRefUri(project),
+                    onlyShowEditableProjects: onlyShowEditableProjects
+                });
+            },
+
+            Rank: buildNumberField,
+
+            Ready: function(field, record) {
+                return Ext.create('Rally.ui.detail.view.ReadyButton', {
+                    itemId: 'readyButton',
+                    pressed: record.get('Ready')
+                });
+            },
+
+            Release: function (field, record) {
+                var currentRelease = record.get(field.name);
+                return Ext.create('Rally.ui.combobox.ReleaseComboBox', {
+                    name: field.name,
+                    value: currentRelease,
+                    allowNoEntry: defaultAllowNoEntry(field, record),
+                    showArrows: false,
+                    defaultSelectionPosition: 'first',
+                    defaultToCurrentTimebox: false,
+                    labelAlign: 'right',
+                    storeConfig: {
+                        remoteFilter: true,
+                        filters: [
+                            buildTimeboxFilter(currentRelease)
+                        ],
+                        context: {
+                            project: Rally.data.util.Record.getProject(record),
+                            projectScopeUp: false,
+                            projectScopeDown: false
+                        }
+                    },
+                    plugins: [
+                        {
+                            xclass: 'Rally.ui.detail.plugins.LoadingMonitor'
+                        }
+                    ]
+                });
+            },
+
+            ScheduleState: buildStateField,
+
+            State: function (field, record) {
+                if (record.self.isPortfolioItem()) {
+                    return constrainedComboBox(field, record);
+                } else if (record.isDefect()) {
+                    return constrainedComboBox(field, record);
+                } else if (record.isTask()) {
+                    return buildStateField(field, record);
+                } else {
+                    return Rally.ui.detail.view.DetailEditorFactory.getEditorByType(field, record);
+                }
+            },
+
+            SubmittedBy:  function(field, record) {
+                return userSearchComboBox(field, record, true);
+            },
+
+            TargetProject: buildTargetProjectEditor,
+
+            ToDo: buildNumberField
+        },
+
+        typeEditors: {
+            'boolean': function (field, record) {
+                var choices = Ext.create('Ext.data.Store', {
+                    fields: ['value', 'display'],
+                    data: [
+                        {value: true, display: 'Yes'},
+                        {value: false, display: 'No'}
+                    ]
+                });
+
+                return Ext.create('Rally.ui.combobox.ComboBox', {
+                    name: field.name,
+                    store: choices,
+                    queryMode: 'local',
+                    displayField: 'display',
+                    valueField: 'value',
+                    labelAlign: 'right',
+                    value: record.get(field.name),
+                    defaultSelectionPosition: 'last'
+                });
+            },
+            date: function (field, record) {
+                var plugins = [];
+                if (_.contains(['CreationDate', 'OpenedDate', 'ClosedDate'], field.name)) {
+                    plugins.push('rallydetailreadonlyrefreshingfield');
+                }
+                return Ext.create('Rally.ui.DateField', {
+                    format: Rally.util.DateTime.getUserExtDateFormat(),
+                    validateOnChange: false,
+                    name: field.name,
+                    value: record.get(field.name),
+                    labelAlign: 'right',
+                    clientMetrics: {
+                        event: 'select',
+                        description: 'field select'
+                    },
+                    plugins: plugins
+                });
+            },
+            'decimal': function (field, record) {
+                return Ext.create('Rally.ui.detail.view.DetailNumberField', {
+                    name: field.name,
+                    value: record.get(field.name),
+                    field: field,
+                    keyNavEnabled: false,
+                    mouseWheelEnabled: false,
+                    fieldStyle: 'border-right-width: 1px; background-color: light-green;',
+                    clientMetrics: {
+                        event: 'blur',
+                        description: 'field blur'
+                    }
+                });
+            },
+            'integer': function (field, record) {
+                return Ext.create('Rally.ui.detail.view.DetailNumberField', {
+                    name: field.name,
+                    value: record.get(field.name),
+                    field: field,
+                    clientMetrics: {
+                        event: 'blur',
+                        description: 'field blur'
+                    }
+                });
+            },
+            'object': function (field, record) {
+                if (field.attributeDefinition.Constrained) {
+                    return Ext.create('Rally.ui.combobox.ComboBox', {
+                        name: field.name,
+                        value: record.get(field.name),
+                        editable: false,
+                        storeConfig: {
+                            autoLoad: true,
+                            model: field.attributeDefinition.SchemaType,
+                            initialValue: record.get(field.name) ? record.get(field.name)._refObjectName : ''
+                        },
+                        allowNoEntry: defaultAllowNoEntry(field, record)
+                    });
+
+                } else {
+                    return Ext.create('Rally.ui.TextField', {
+                        name: field.name,
+                        value: record.get(field.name),
+                        clientMetrics: {
+                            event: 'blur',
+                            description: 'field blur'
+                        }
+                    });
+                }
+            },
+            quantity: function (field, record) {
+                return Ext.create('Rally.ui.detail.view.DetailNumberField', {
+                    name: field.name,
+                    value: record.get(field.name),
+                    field: field,
+                    hideTrigger: true,
+                    keyNavEnabled: false,
+                    mouseWheelEnabled: false,
+                    fieldStyle: 'border-right-width: 1px; background-color: light-blue;',
+                    clientMetrics: {
+                        event: 'blur',
+                        description: 'field blur'
+                    }
+                });
+            },
+            rating: function (field, record) {
+                if (field.attributeDefinition.Constrained) {
+                    return constrainedComboBox(field, record, {
+                        allowNoEntry: !field.required || record.get(field.name) === 'None',
+                        ratingNoEntryString: '-- No Entry --',
+                        noEntryValue: 'None',
+                        useNullForNoEntryValue: false
+                    });
+                } else {
+                    return Ext.create('Rally.ui.TextField', {
+                        name: field.name,
+                        value: record.get(field.name),
+                        clientMetrics: {
+                            event: 'blur',
+                            description: 'field blur'
+                        }
+                    });
+                }
+            },
+            string: function (field, record) {
+                if (field.attributeDefinition.Constrained) {
+                    return constrainedComboBox(field, record);
+                } else {
+                    return Ext.create('Rally.ui.TextField', {
+                        name: field.name,
+                        value: record.get(field.name),
+                        height: 30,
+                        width: '100%',
+                        labelAlign: 'right',
+                        clientMetrics: {
+                            event: 'blur',
+                            description: 'field blur'
+                        }
+                    });
+                }
+            },
+            text: function (field, record) {
+                var isEditable = Rally.ui.detail.DetailHelper.isDetailPageFieldEditable(field, record),
+                    editor;
+
+                if (isEditable) {
+                    editor = Ext.create('Rally.ui.richtext.RichTextEditor', {
+                        field: field,
+                        record: record,
+                        title: field.name,
+                        name: field.name,
+                        value: record.get(field.name),
+                        growToFitContent: true,
+                        width: '100%',
+                        allowImageUpload: true,
+                        toolbarAlwaysEnabled: false,
+                        showUndoButton: true,
+                        disableUndoButtonWithToolbar: false,
+                        indicatorFoldUnder: true,
+                        clientMetrics: {
+                            event: 'blur',
+                            description: 'field blur'
+                        },
+                        useLinkBubble: true,
+                        listeners: {
+                            focus: function () {
+                                var focusedField = Ext.ComponentQuery.query('rallydetailfieldcontaineredpcomplete[focused=true]')[0];
+
+                                if (focusedField) {
+                                    var editor = focusedField.editor;
+                                    if (editor !== this) {
+                                        focusedField.clearSelection();
+                                        editor.hasFocus = false;
+                                        editor.fireEvent('blur');
+                                        if (editor.collapse) {
+                                            editor.collapse();
+                                        }
+                                    }
+                                }
+                            },
+                            blur: function () {
+                                var fields = Ext.ComponentQuery.query('rallydetailfieldcontaineredpcomplete');
+                                var previouslyFocusedField = _.find(fields, function (field) {
+                                    if (field.editor) {
+                                        return field.editor.hasFocus;
+                                    }
+                                }, this);
+                                if (previouslyFocusedField) {
+                                    previouslyFocusedField.focusField();
+                                }
+                            },
+                            imageuploaded: function(imageInfo) {
+                                var controller = Rally.ui.detail.DetailHelper.getController();
+                                if(controller) {
+                                    controller._handleImageUpload(imageInfo);
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    editor = Ext.create('Rally.ui.richtext.RichTextEditorReadOnly', {
+                        html: record.get(field.name)
+                    });
+                }
+
+                if (Rally.ui.detail.DetailHelper.getController()) {
+                    Rally.ui.detail.DetailHelper.getController().on('recordupdate', function(record) {
+                        editor.setValue(record.get(field.name));
+                    });
+                }
+
+                return editor;
+            },
+            web_link: function (field, record) {
+                return Ext.create('Rally.ui.detail.view.DetailWebLinkField', {
+                    field: field,
+                    record: record
+                });
+            }
+        }
+    });
+
+    function buildTimeboxFilter(timebox) {
+        var filter = Ext.create('Rally.data.wsapi.Filter', {
+            property: 'State',
+            operator: '!=',
+            value: 'Accepted'
+        });
+        if (timebox && _.isString(timebox._refObjectName)) {
+            filter = filter.or(Ext.create('Rally.data.wsapi.Filter', {
+                property: 'Name',
+                operator: '=',
+                value: timebox._refObjectName
+            }));
+        }
+        return filter;
+    }
+
+    function buildNameEditor(field, record, defaultValue) {
+        var placeholder = defaultValue;
+        return Ext.create('Rally.ui.detail.SimpleTextDetailField', {
+            name: field.name,
+            value: record.get(field.name),
+            placeholder: placeholder,
+            indicatorFoldUnder: true,
+            clientMetrics: {
+                event: 'blur',
+                description: 'field blur'
+            }
+        });
+    }
+
+    function buildNameRenderer(field, record) {
+        return Ext.create('Ext.form.field.Display', {
+            name: field.name,
+            value: record.get(field.name),
+            cls: 'edp-name-renderer'
+        });
+    }
+})();
+Ext.define('Rally.technicalservices.SimpleTextDetailField', {
+    extend: 'Ext.Component',
+    alias: 'widget.tssimpletextdetailfield',
+
+    cls: 'simpleTextDetailField',
+
+    autoEl: 'span',
+
+    renderTpl: '{label}<input class="simpleTextDetailField" value="{value:htmlEncode}" placeholder="{placeholder}"/>',
+    renderSelectors: {
+        inputField: '.simpleTextDetailField'
+    },
+
+    mixins: {
+        field: 'Ext.form.field.Field'
+    },
+
+    initComponent: function(){
+        this.callParent(arguments);
+
+        this.mixins.field.initField.call(this);
+
+        this.renderData = {
+            value: this.value,
+            placeholder: this.placeholder,
+            label: 'xyz'
+        };
+
+        this.on('afterrender', this._afterRender, this);
+    },
+
+    _afterRender: function(){
+        this.relayEvents(this.inputField, ['blur', 'change']);
+    },
+
+    getSubmitData: function() {
+        var submitData = {};
+        submitData[this.getName()] = this.getValue();
+
+        return submitData;
+    },
+
+    getValue: function(){
+        if(this.inputField) {
+            return this.inputField.getValue();
+        }
+        return null;
+    }
+
+});
+
+
+Ext.define('Rally.technicalservices.BooleanFieldComboBox',{
+    extend: 'Rally.ui.combobox.FieldComboBox',
+    alias: 'widget.tsbooleanfieldcombobox',
+
+    _isNotHidden: function(field) {
+        return (!field.hidden && field.attributeDefinition && field.attributeDefinition.AttributeType == 'BOOLEAN');
+    }
+});
+
+Ext.define('Rally.technicalservices.settings.FormConfiguration',{
+    extend: 'Ext.form.field.Base',
+    alias: 'widget.tsformconfigsettings',
+    config: {
+        value: undefined,
+        fields: undefined,
+        decodedValue: {}
+    },
+    notAllowedFields: ['Dependencies','Project','Milestones','Workspace','Changesets','Parent','Predecessors','Successors','PortfolioItem'],
+    fieldSubTpl: '<div id="{id}" class="settings-grid"></div>',
+
+    width: '100%',
+    cls: 'column-settings',
+
+    onDestroy: function() {
+        if (this._grid) {
+            this._grid.destroy();
+            delete this._grid;
+        }
+        this.callParent(arguments);
+    },
+
+    onRender: function() {
+        var decodedValue = {};
+        if (this.value && !_.isEmpty(this.value)){
+            decodedValue = Ext.JSON.decode(this.value);
+        }
+        this.callParent(arguments);
+
+        var data = [];
+
+        _.each(this.fields, function(f){
+            if (this._isFieldAllowed(f)){
+                var dsp = false,
+                    def_value = f.defaultValue || '',
+                    req = f.required || false,
+                    order = null;
+
+                if (decodedValue[f.name]){
+                    dsp = true;
+                    def_value = decodedValue[f.name].defaultValue;
+                    req = decodedValue[f.name].required;
+                    order = order;
+                }
+                data.push({fieldName: f.name, displayName: f.displayName, display: dsp, defaultValue: def_value, required: req})
+            }
+        }, this);
+
+        data = _.sortBy(data, 'order');
+        this._store = Ext.create('Ext.data.Store', {
+            fields: ['fieldName', 'displayName','display', 'defaultValue', 'required','order'],
+            data: data
+        });
+
+        this._grid = Ext.create('Rally.ui.grid.Grid', {
+            autoWidth: true,
+            renderTo: this.inputEl,
+            columnCfgs: this._getColumnCfgs(),
+            showPagingToolbar: false,
+            showRowActionsColumn: false,
+            store: this._store,
+            height: 400,
+            editingConfig: {
+                publishMessages: false
+            },
+            viewConfig: {
+                plugins: {
+                    ptype: 'gridviewdragdrop',
+                    dragText: 'Drag and drop to reorder'
+                },
+                listeners: {
+                    drop: function(node, data, dropRec, dropPosition) {
+                        console.log('drop', node, data, dropRec, dropPosition);
+                    }
+                }
+            }
+        });
+    },
+    _isFieldAllowed: function(field){
+        if (Ext.Array.contains(this.notAllowedFields, field.name)){
+            return false;
+        }
+
+        if (field.readOnly === true || field.hidden === true){
+            return false;
+        }
+
+        //Not showing Weblinks for now
+        if (field && field.attributeDefinition && field.attributeDefinition.AttributeType == 'WEB_LINK'){
+            return false;
+        }
+
+        return true;
+    },
+    _getColumnCfgs: function() {
+        var columns = [
+            {
+                text: 'Field',
+                dataIndex: 'displayName'
+            },
+            {
+                text: 'Show',
+                dataIndex: 'display',
+                renderer: function (value) {
+                    return value === true ? 'Yes' : 'No';
+                },
+                editor: {
+                    xtype: 'rallycombobox',
+                    displayField: 'name',
+                    valueField: 'value',
+                    editable: false,
+                    storeType: 'Ext.data.Store',
+                    storeConfig: {
+                        remoteFilter: false,
+                        fields: ['name', 'value'],
+                        data: [
+                            {'name': 'Yes', 'value': true},
+                            {'name': 'No', 'value': false}
+                        ]
+                    }
+                }
+            },
+            {
+                text: 'Required',
+                dataIndex: 'required',
+                renderer: function (value) {
+                    return value === true ? 'Yes' : 'No';
+                },
+                editor: {
+                    xtype: 'rallycombobox',
+                    displayField: 'name',
+                    valueField: 'value',
+                    editable: false,
+                    storeType: 'Ext.data.Store',
+                    storeConfig: {
+                        remoteFilter: false,
+                        fields: ['name', 'value'],
+                        data: [
+                            {'name': 'Yes', 'value': true},
+                            {'name': 'No', 'value': false}
+                        ]
+                    }
+                }
+            },
+            {
+                text: 'Default Value',
+                dataIndex: 'defaultValue',
+                emptyCellText: '',
+                flex: 1,
+                editor: {
+                    xtype: 'rallytextfield'
+                }
+            }
+        ];
+        return columns;
+    },
+
+    /**
+     * When a form asks for the data this field represents,
+     * give it the name of this field and the ref of the selected project (or an empty string).
+     * Used when persisting the value of this field.
+     * @return {Object}
+     */
+    getSubmitData: function() {
+        var data = {};
+        data[this.name] = Ext.JSON.encode(this._buildSettingValue());
+        return data;
+    },
+    _buildSettingValue: function() {
+        var mappings = {},
+            order = 1;
+        this._store.each(function(record) {
+            if (record.get('display')) {
+                mappings[record.get('fieldName')] = {
+                    required: record.get('required'),
+                    defaultValue: record.get('defaultValue'),
+                    order: order++
+                };
+            }
+        }, this);
+        return mappings;
+    },
+
+    getErrors: function() {
+        var errors = [];
+        if (_.isEmpty(this._buildSettingValue())) {
+            //Nothing is set to display
+           // alert('Please select at least one field to display on the configuration form.');
+            errors.push('At least one field must be displayed.');
+        }
+        return errors;
+    },
+    validate : function() {
+        var me = this,
+            isValid = me.isValid();
+        if (isValid !== me.wasValid) {
+            me.wasValid = isValid;
+            me.fireEvent('validitychange', me, isValid);
+        }
+        return isValid;
+    },
+    setValue: function(value) {
+        this.callParent(arguments);
+        this._value = value;
+    }
+});
+
+Ext.define('Rally.technicalservices.RequestForm', {
+    extend: 'Ext.panel.Panel',
+    alias: 'widget.tsrequestform',
+    logger: new Rally.technicalservices.Logger(),
+
+    layout: {
+        type: 'vbox',       // Arrange child items vertically
+        //    align: 'stretch',    // Each takes up full width
+        padding: 10
+    },
+
+    config: {
+        title: 'This is a title',
+        instructions: 'These are instructions for filling out this form',
+        model: undefined,
+        formConfiguration: undefined,
+        thankYouMessage: "Thank you for your submission."
+    },
+
+    /**
+     * Properties that are populated during the creation of this object
+     */
+    newRecord: null,
+
+    constructor: function(config){
+        this.mergeConfig(config);
+        this.logger.log('constructor', config, this.config);
+        this.callParent(arguments);
+    },
+    initComponent: function () {
+        this.callParent();
+        this.addEvents('save','ready','onwarning','onerror');
+        this._build(this.model);
+    },
+
+    _build: function (model) {
+        this.logger.log('_build', model);
+        this.newRecord = this._getNewRecord(model);
+
+        this._addInstructions(this.instructions);
+
+        this._addFields(this.newRecord);
+
+    },
+    _addInstructions: function(){
+        var title = this.add(Ext.create('Ext.container.Container',{
+            tpl: '<tpl>{instructions}</tpl>'
+        }));
+        title.update(this);
+    },
+
+    _addFields: function(newRecord){
+        var model = this.model;
+        this.logger.log('_addFields', this.formConfiguration);
+        if (!_.isEmpty(this.formConfiguration)){
+            _.each(this.formConfiguration, function(field_obj, field_name){
+                var model_field = model.getField(field_name);
+                if (model_field){
+                    var item_id = field_name,
+                        margin = 10,
+                        field_label = model_field.displayName;
+
+                    var item = Rally.technicalservices.DetailEditorFactory.getEditor(model_field,newRecord,item_id, margin, field_label);
+                    this.add(item);
+                }
+            }, this);
+            this.doLayout();
+            this.fireEvent('ready');
+        } else {
+            var msg = "No fields were loaded to display.  Please check the configuration settings to verify that fields are configured for this App."
+            this.add({
+                xtype: 'container',
+                html: msg
+            });
+        }
+    },
+
+    _getNewRecord: function(model){
+        var newFields = {};
+        Ext.each(this.formConfiguration, function(field_obj, field_name){
+            if (field_obj.defaultValue){
+                newFields[field_name] = field_obj.defaultValue;
+            }
+        },this);
+        this.logger.log('_getNewRecord', newFields);
+        var rec = Ext.create(model, newFields);
+        return rec;
+    },
+
+    _updateNewRecord: function(){
+        _.each(this.formConfiguration, function(field_obj, field_name){
+            var val = this.down('#' + field_name).getValue() || field_obj.defaultValue || null;
+            this.newRecord.set(field_name, val);
+        }, this);
+
+    },
+    save: function () {
+        this._updateNewRecord();
+        this.newRecord.save({
+            scope: this,
+            callback: function(result, operation) {
+                if(operation.wasSuccessful()) {
+                    this.removeAll();
+                    this.add({
+                        xtype: 'container',
+                        html: this.thankYouMessage
+                    });
+                    this.fireEvent('save',result);
+                } else {
+                    var msg = Ext.String.format("Submission could not be saved: {0}", operation.error.errors[0]);
+                    this.fireEvent('onerror', {message: msg});
+                }
+            }
+        });
+    }
+});
+
+Ext.define('Rally.technicalservices.WsapiToolbox',{
+    singleton: true,
+
+    fetchModel: function(model_name){
+        var deferred = Ext.create('Deft.Deferred');
+        Rally.data.wsapi.ModelFactory.getModel({
+            type: model_name,
+            success: function(model) {
+                deferred.resolve(model);
+            },
+            failure: function(){
+                deferred.reject('Error loading model: ' + model_name);
+            }
+        });
+        return deferred.promise;
+    }
+});
+
+Ext.define("configurable-request-form", {
+    extend: 'Rally.app.App',
+    componentCls: 'app',
+    logger: new Rally.technicalservices.Logger(),
+    defaults: { margin: 10 },
+    config: {
+        defaultSettings: {
+            formFieldConfiguration: {},
+            formModelName: 'HierarchicalRequirement'
+        }
+    },
+    formModel: undefined,
+
+    items: [
+        {xtype:'container',itemId:'display_box', flex: 1},
+        {xtype:'container',itemId:'button_box', flex: 1}
+    ],
+    
+    launch: function() {
+        Rally.technicalservices.WsapiToolbox.fetchModel(this.getSetting('formModelName')).then({
+           scope: this,
+           success: function(model){
+               this.formModel = model;
+               this._validateSettings(this.getSettings(), model);
+           },
+           failure: function(msg){
+                Rally.ui.notify.Notifier.showError({message: msg});
+           }
+       });
+    },
+    _validateSettings: function(settings, model){
+        this.logger.log('_validateSettings settings', settings);
+        var config_obj = settings.formFieldConfiguration;
+        if (!Ext.isObject(config_obj)){
+            config_obj = Ext.JSON.decode(settings.formFieldConfiguration);
+        }
+
+        this.down('#display_box').removeAll();
+
+        this.logger.log('_validateSettings formFieldConfig', config_obj);
+        if (_.isEmpty(config_obj)){
+            this.down('#display_box').add({
+                xtype: 'container',
+                html: 'No form configuration has been defined.<br/>Please use the App Settings to configure the form.',
+                style: {
+                    fontFamily: 'ProximaNovaLight, Helvetica, Arial'
+                }
+            });
+        } else {
+            this._buildForm(model, config_obj);
+        }
+    },
+    _buildForm: function(model, form_config){
+        this.logger.log('_buildForm');
+
+        this.down('#display_box').add({
+            xtype: 'tsrequestform',
+            itemId: 'requestform',
+            model: model,
+            formConfiguration: form_config,
+            listeners: {
+                scope: this,
+                save: this._onSaved,
+                onwarning: this._onWarning,
+                onerror: this._onError,
+                ready: this._onReady
+            }
+        });
+        this.down('#button_box').add({
+            xtype:'rallybutton',
+            text: 'Submit',
+            itemId: 'btn-submit',
+            width: 75,
+            scope: this,
+            handler: this._save
+        });
+
+    },
+    _save: function(){
+        var requestForm = this.down('#requestform');
+        requestForm.save();
+    },
+    _onSaved: function(newRecord){
+        this.logger.log('_onSaved',newRecord);
+        Rally.ui.notify.Notifier.showCreate({artifact: newRecord});
+        this.down('#btn-submit').setVisible(false);
+        //Rally.nav.Manager.showDetail(newRecord.get('_ref'));
+    },
+    _onWarning: function(obj){
+        Rally.ui.notify.Notifier.showWarning(obj);
+    },
+    _onError: function(obj){
+        Rally.ui.notify.Notifier.showError(obj);
+    },
+    _onReady: function(obj){
+        // Rally.ui.notify.Notifier.show({message: 'Ready!'});
+    },
+    getOptions: function() {
+        return [
+            {
+                text: 'About...',
+                handler: this._launchInfo,
+                scope: this
+            }
+        ];
+    },
+    getSettingsFields: function() {
+        var formModel = this.formModel;
+        var fields = [];
+        if (formModel){
+            fields = formModel.getFields();
+        }
+
+        return [{
+                name: 'formFieldConfiguration',
+                xtype: 'tsformconfigsettings',
+                fieldLabel: 'Form Field Configuration',
+                margin: 15,
+                labelAlign: 'top',
+                fields: fields
+            }];
+    },
+    _launchInfo: function() {
+        if ( this.about_dialog ) { this.about_dialog.destroy(); }
+        this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
+    },
+    isExternal: function(){
+        return typeof(this.getAppId()) == 'undefined';
+    },
+    //onSettingsUpdate:  Override
+    onSettingsUpdate: function (settings){
+        this.logger.log('onSettingsUpdate',settings);
+        Ext.apply(this, settings);
+        this._validateSettings(settings, this.formModel);
+    }
+});
+
+            
+               Rally.launchApp('configurable-request-form', {
+                   name: 'Configurable Request Form'
+               });
+        });
+    </script>
+    
+    <style type="text/css">
+
+.app {
+}
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    text-align: center;
+    color: white;
+    background: #C0C0C0;
+    border-style: solid;
+    border-width: 1px;
+    margin-top: 25px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+    </style>
+
+</head>
+<body></body>
+</html>
