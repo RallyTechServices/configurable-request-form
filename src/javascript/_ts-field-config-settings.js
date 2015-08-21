@@ -40,7 +40,6 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
 
         _.each(this.fields, function(f){
             if (this._isFieldAllowed(f)){
-                console.log('--', f.name, 'f', f);
                 var dsp = false,
                     def_value = f.defaultValue || '',
                     req = f.required || false,
@@ -77,11 +76,6 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
                 plugins: {
                     ptype: 'gridviewdragdrop',
                     dragText: 'Drag and drop to reorder'
-                },
-                listeners: {
-                    drop: function(node, data, dropRec, dropPosition) {
-                        console.log('drop', node, data, dropRec, dropPosition);
-                    }
                 }
             }
         });

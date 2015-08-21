@@ -5,7 +5,11 @@ Ext.define('Rally.technicalservices.RequestForm', {
 
     layout: {
         type: 'vbox',       // Arrange child items vertically
-        padding: 10
+        //type: 'table',
+        //columns: 1,
+        //padding: 10,
+        //tableAttrs: {"class": "tstbl"},
+        //trAttrs: {"class": "tstbl"}
     },
 
     config: {
@@ -63,7 +67,6 @@ Ext.define('Rally.technicalservices.RequestForm', {
                     item.labelCls = "tslabel";
                     if (field_obj.required){
                         item.validator = function(value) {
-                            console.log('validator required',value);
                             if (Ext.isEmpty(value) || value == null || value == ''){
                                 return Ext.String.format('{0} is required.', field_name);
                             }

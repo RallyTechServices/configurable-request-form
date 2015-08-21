@@ -165,15 +165,11 @@
 
         getEditor: function (field, record, item_id, margin, field_label) {
             var editor;
-            console.log(field.name);
             if (this.fieldEditors[field.name]) {
-                console.log('editor by name', field.name);
                 editor = this.fieldEditors[field.name](field, record);
             } else if (field.attributeDefinition && this.typeEditors[field.attributeDefinition.AttributeType.toLowerCase()]) {
-                console.log('editor by type', field.name);
                 editor = this.getEditorByType(field, record);
             } else {
-                console.log('default', field.name);
                 editor = this.defaultRenderer(field, record);
             }
 
@@ -430,7 +426,6 @@
                         height: getDefaultHeight(),
                         minWidth: 200,
                         labelSeparator: "",
-                        labelAlign: 'right',
                         labelWidth: Rally.technicalservices.DetailEditorFactory.labelWidth,
                         labelCls: Rally.technicalservices.DetailEditorFactory.labelCls,
                         width: Rally.technicalservices.DetailEditorFactory.controlWidth,

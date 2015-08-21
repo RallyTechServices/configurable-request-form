@@ -3,10 +3,10 @@
 <head>
     <title>Configurable Request Form</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Aug 21 2015 12:37:10 GMT-0600 (MDT) -->
+    <!--  Build Date: Fri Aug 21 2015 13:18:58 GMT-0600 (MDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Aug 21 2015 12:37:10 GMT-0600 (MDT)";
+        var APP_BUILD_DATE = "Fri Aug 21 2015 13:18:58 GMT-0600 (MDT)";
         var CHECKSUM = [%= checksum %];
     </script>
     
@@ -60,7 +60,18 @@
     font-family: ProximaNovaSemiBold,Helvetica,Arial;
     color: #222;
     font-size: 14px;
-    padding: 10;
+    padding: 10px;
+}
+
+.tstbl {
+    padding: 5px;
+}
+
+.tstbl tr:nth-child(odd){
+    background-color: #e6e6e6;
+}
+.tstbl tr:nth-child(even){
+    background-color: #ffffff;
 }
     </style>
 

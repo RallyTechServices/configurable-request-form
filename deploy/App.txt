@@ -3,11 +3,11 @@
 <head>
     <title>Configurable Request Form</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Aug 21 2015 12:37:10 GMT-0600 (MDT) -->
+    <!--  Build Date: Fri Aug 21 2015 13:18:58 GMT-0600 (MDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Aug 21 2015 12:37:10 GMT-0600 (MDT)";
-        var CHECKSUM = 50757074989;
+        var APP_BUILD_DATE = "Fri Aug 21 2015 13:18:58 GMT-0600 (MDT)";
+        var CHECKSUM = 49879960758;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -68,7 +68,6 @@ Ext.define('Rally.technicalservices.InfoLink',{
     
     _checkChecksum: function(container) {
         var deferred = Ext.create('Deft.Deferred');
-        console.log("_checkChecksum", container);
         var me = this;
         
         Ext.Ajax.request({
@@ -80,7 +79,6 @@ Ext.define('Rally.technicalservices.InfoLink',{
                 text = response.responseText;
                 if ( CHECKSUM ) {
                     if ( CHECKSUM !== me._generateChecksum(text) ) {
-                        console.log("Checksums don't match!");
                         deferred.resolve(false);
                         return;
                     }
@@ -108,9 +106,6 @@ Ext.define('Rally.technicalservices.InfoLink',{
                             html:'<span class="icon-warning"> </span>Checksums do not match'
                         });
                     }
-                },
-                failure: function(msg){
-                    console.log("oops:",msg);
                 }
             });
         } else {
@@ -220,8 +215,7 @@ Ext.define('Rally.technicalservices.AttachmentEditor',{
 
     },
     addFile: function(button, e, value){
-        console.log('addFile', button, e, value);
-        //var reader = new FileReader();
+         //var reader = new FileReader();
         //reader.readAsBinaryString(value, "UTF-8");
         //reader.onload = function (evt) {
         //    console.log('onload', evt.target.result);
@@ -435,15 +429,11 @@ Ext.define('Rally.technicalservices.AttachmentEditor',{
 
         getEditor: function (field, record, item_id, margin, field_label) {
             var editor;
-            console.log(field.name);
             if (this.fieldEditors[field.name]) {
-                console.log('editor by name', field.name);
                 editor = this.fieldEditors[field.name](field, record);
             } else if (field.attributeDefinition && this.typeEditors[field.attributeDefinition.AttributeType.toLowerCase()]) {
-                console.log('editor by type', field.name);
                 editor = this.getEditorByType(field, record);
             } else {
-                console.log('default', field.name);
                 editor = this.defaultRenderer(field, record);
             }
 
@@ -700,7 +690,6 @@ Ext.define('Rally.technicalservices.AttachmentEditor',{
                         height: getDefaultHeight(),
                         minWidth: 200,
                         labelSeparator: "",
-                        labelAlign: 'right',
                         labelWidth: Rally.technicalservices.DetailEditorFactory.labelWidth,
                         labelCls: Rally.technicalservices.DetailEditorFactory.labelCls,
                         width: Rally.technicalservices.DetailEditorFactory.controlWidth,
@@ -784,6 +773,7 @@ Ext.define('Rally.technicalservices.RichTextEditor', {
                 disableUndoButtonWithToolbar: false,
                 indicatorFoldUnder: true,
                 useLinkBubble: true,
+                flex: 1,
                 listeners: {
                     focus: function () {
                         var focusedField = Ext.ComponentQuery.query('rallydetailfieldcontaineredpcomplete[focused=true]')[0];
@@ -894,7 +884,6 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
 
         _.each(this.fields, function(f){
             if (this._isFieldAllowed(f)){
-                console.log('--', f.name, 'f', f);
                 var dsp = false,
                     def_value = f.defaultValue || '',
                     req = f.required || false,
@@ -931,11 +920,6 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
                 plugins: {
                     ptype: 'gridviewdragdrop',
                     dragText: 'Drag and drop to reorder'
-                },
-                listeners: {
-                    drop: function(node, data, dropRec, dropPosition) {
-                        console.log('drop', node, data, dropRec, dropPosition);
-                    }
                 }
             }
         });
@@ -1093,7 +1077,11 @@ Ext.define('Rally.technicalservices.RequestForm', {
 
     layout: {
         type: 'vbox',       // Arrange child items vertically
-        padding: 10
+        //type: 'table',
+        //columns: 1,
+        //padding: 10,
+        //tableAttrs: {"class": "tstbl"},
+        //trAttrs: {"class": "tstbl"}
     },
 
     config: {
@@ -1151,7 +1139,6 @@ Ext.define('Rally.technicalservices.RequestForm', {
                     item.labelCls = "tslabel";
                     if (field_obj.required){
                         item.validator = function(value) {
-                            console.log('validator required',value);
                             if (Ext.isEmpty(value) || value == null || value == ''){
                                 return Ext.String.format('{0} is required.', field_name);
                             }
@@ -1581,7 +1568,18 @@ Ext.define("configurable-request-form", {
     font-family: ProximaNovaSemiBold,Helvetica,Arial;
     color: #222;
     font-size: 14px;
-    padding: 10;
+    padding: 10px;
+}
+
+.tstbl {
+    padding: 5px;
+}
+
+.tstbl tr:nth-child(odd){
+    background-color: #e6e6e6;
+}
+.tstbl tr:nth-child(even){
+    background-color: #ffffff;
 }
     </style>
 

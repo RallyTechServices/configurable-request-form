@@ -42,8 +42,7 @@ Ext.define('Rally.technicalservices.AttachmentEditor',{
 
     },
     addFile: function(button, e, value){
-        console.log('addFile', button, e, value);
-        //var reader = new FileReader();
+         //var reader = new FileReader();
         //reader.readAsBinaryString(value, "UTF-8");
         //reader.onload = function (evt) {
         //    console.log('onload', evt.target.result);
