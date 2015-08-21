@@ -15,7 +15,7 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
         fields: undefined,
         decodedValue: {}
     },
-    notAllowedFields: ['Dependencies','Project','Milestones','Workspace','Changesets','Parent','Predecessors','Successors','PortfolioItem'],
+    notAllowedFields: ['ScheduleState','Tags','PredecessorsAndSuccessors','Predecessors','Successors','Project','Milestones','Workspace','Changesets','Parent','PortfolioItem','DisplayColor'],
     fieldSubTpl: '<div id="{id}" class="settings-grid"></div>',
 
     width: '100%',
@@ -40,6 +40,7 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
 
         _.each(this.fields, function(f){
             if (this._isFieldAllowed(f)){
+                console.log('--', f.name, 'f', f);
                 var dsp = false,
                     def_value = f.defaultValue || '',
                     req = f.required || false,
@@ -86,6 +87,8 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
         });
     },
     _isFieldAllowed: function(field){
+        var forbiddenTypes = ['WEB_LINK'];
+
         if (Ext.Array.contains(this.notAllowedFields, field.name)){
             return false;
         }
@@ -94,8 +97,12 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
             return false;
         }
 
+        if (field && !field.attributeDefinition){
+            return false;
+        }
+
         //Not showing Weblinks for now
-        if (field && field.attributeDefinition && field.attributeDefinition.AttributeType == 'WEB_LINK'){
+        if (Ext.Array.contains(forbiddenTypes, field.attributeDefinition.AttributeType)){
             return false;
         }
 
@@ -105,7 +112,8 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
         var columns = [
             {
                 text: 'Field',
-                dataIndex: 'displayName'
+                dataIndex: 'displayName',
+                flex: 1
             },
             {
                 text: 'Show',
@@ -155,7 +163,7 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
                 text: 'Default Value',
                 dataIndex: 'defaultValue',
                 emptyCellText: '',
-                flex: 1,
+                flex: 3,
                 editor: {
                     xtype: 'rallytextfield'
                 }
@@ -193,9 +201,7 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
     getErrors: function() {
         var errors = [];
         if (_.isEmpty(this._buildSettingValue())) {
-            //Nothing is set to display
-           // alert('Please select at least one field to display on the configuration form.');
-            errors.push('At least one field must be displayed.');
+           errors.push('At least one field must be shown.');
         }
         return errors;
     },
@@ -206,6 +212,18 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
             me.wasValid = isValid;
             me.fireEvent('validitychange', me, isValid);
         }
+        if (!isValid){
+            var html = this.getErrors().join('<br/>');
+            Ext.create('Rally.ui.tooltip.ToolTip', {
+                target : this.getEl(),
+                html: '<div class="tsinvalid">' + html + '</div>',
+                autoShow: true,
+                anchor: 'bottom',
+                destroyAfterHide: true
+            });
+
+        }
+
         return isValid;
     },
     setValue: function(value) {

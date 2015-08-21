@@ -42,11 +42,21 @@ Ext.define('Rally.technicalservices.AttachmentEditor',{
 
     },
     addFile: function(button, e, value){
-        this._store.add({filename: value});
+        console.log('addFile', button, e, value);
+        //var reader = new FileReader();
+        //reader.readAsBinaryString(value, "UTF-8");
+        //reader.onload = function (evt) {
+        //    console.log('onload', evt.target.result);
+        this._store.add({filename: value, name: '', description: '', content: ''});
+        //}
+        //reader.onerror = function (evt) {
+        //    console.log('onload', evt.target.result);
+        //}
+
     },
     removeFile: function(grid, rowIndex, colIndex) {
-        // var rec = grid.getStore().getAt(rowIndex);
-        alert("Delete ");
+        var rec = grid.getStore().getAt(rowIndex);
+        this._store.remove(rec);
     },
     _getColumnCfgs: function(){
         var me = this;
@@ -66,7 +76,16 @@ Ext.define('Rally.technicalservices.AttachmentEditor',{
             renderer: function(v,m,r){
                 return v;
             }
+        },{
+            dataIndex: 'name',
+            text: 'Name'
+        },{
+            dataIndex: 'description',
+            text: 'Description'
         }];
+    },
+    getValue: function(){
+        return this._store.data.items;
     }
 
 });

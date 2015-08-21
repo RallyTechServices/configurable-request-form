@@ -27,12 +27,13 @@
     };
 
     var buildNumberField = function(field, record) {
+        var value = Number(record.get(field.name)) || 0;
         return Ext.create('Rally.ui.NumberField', {
             name: field.name,
             displayName: field.displayName,
-            value: record.get(field.name),
+            value: value,
             labelAlign: 'right',
-            height: 30,
+            height: getDefaultHeight(),
             field: field,
             hideTrigger: true,
             clientMetrics: {
@@ -107,6 +108,10 @@
             value: record.get(field.name),
             field: field,
             labelAlign: 'right',
+            labelWidth: Rally.technicalservices.DetailEditorFactory.labelWidth,
+            labelCls: Rally.technicalservices.DetailEditorFactory.labelCls,
+            width: '75%',
+            minWidth: 200,
             editable: false,
             allowNoEntry: defaultAllowNoEntry(field, record),
             useNullForNoEntryValue: true,
@@ -124,6 +129,9 @@
             record: record,
             readOnly: readOnly
         });
+    }
+    function getDefaultHeight(){
+        return 25;
     }
 
     /**
@@ -150,22 +158,25 @@
 
         singleton: true,
 
+        labelWidth: 150,
+        labelCls: 'tslabel',
+        controlWidth: '90%',
+        padding: 0,
+
         getEditor: function (field, record, item_id, margin, field_label) {
             var editor;
-
+            console.log(field.name);
             if (this.fieldEditors[field.name]) {
+                console.log('editor by name', field.name);
                 editor = this.fieldEditors[field.name](field, record);
             } else if (field.attributeDefinition && this.typeEditors[field.attributeDefinition.AttributeType.toLowerCase()]) {
+                console.log('editor by type', field.name);
                 editor = this.getEditorByType(field, record);
             } else {
+                console.log('default', field.name);
                 editor = this.defaultRenderer(field, record);
             }
 
-            editor.disabledCls += " readonly";
-            if (!Rally.ui.detail.DetailHelper.isDetailPageFieldEditable(field, record)) {
-                editor.editable = false;
-                editor.setDisabled(true);
-            }
             editor.addCls('detailFieldEditor');
             editor.itemId = item_id;
             editor.fieldLabel = field_label;
@@ -180,23 +191,10 @@
         },
 
         defaultRenderer: function (field, record) {
-            return Ext.create('Rally.ui.TextField', {
-                name: field.name,
-                value: record.get(field.name)
-            });
+            return this.typeEditors['string'](field, record);
         },
 
         fieldEditors: {
-            Actuals: buildNumberField,
-
-            DisplayColor: buildDisplayColorField,
-
-            Estimate: buildNumberField,
-
-            //Name: function (field, record) {
-            //    return Rally.ui.detail.DetailHelper.isDetailPageFieldEditable(field, record) ?
-            //        buildNameEditor(field, record) : buildNameRenderer(field, record);
-            //},
 
             Attachments: function(field, record){
                 return Ext.create('Rally.technicalservices.AttachmentEditor',{
@@ -243,38 +241,6 @@
                 return userSearchComboBox(field, record, record.isUserStory());
             },
 
-            PlanEstimate: buildNumberField,
-
-            PreliminaryEstimate: function (field, record) {
-                return constrainedComboBox(field, record);
-            },
-
-            Project: function (field, record) {
-                var project = record.get(field.name);
-
-                var onlyShowEditableProjects = true;
-                // We want all projects in the list if the page is not editable. Otherwise the current project value will
-                // not be displayed for read only stories.
-                if (!Rally.ui.detail.DetailHelper.isDetailPageFieldEditable(field, record)) {
-                    onlyShowEditableProjects = false;
-                }
-
-                return Ext.create('Rally.ui.combobox.ProjectComboBox', {
-                    name: field.name,
-                    value: Rally.util.Ref.getRefUri(project),
-                    onlyShowEditableProjects: onlyShowEditableProjects
-                });
-            },
-
-            Rank: buildNumberField,
-
-            Ready: function(field, record) {
-                return Ext.create('Rally.ui.detail.view.ReadyButton', {
-                    itemId: 'readyButton',
-                    pressed: record.get('Ready')
-                });
-            },
-
             Release: function (field, record) {
                 var currentRelease = record.get(field.name);
                 return Ext.create('Rally.ui.combobox.ReleaseComboBox', {
@@ -303,31 +269,10 @@
                     ]
                 });
             },
-
-            ScheduleState: buildStateField,
-
-            State: function (field, record) {
-                if (record.self.isPortfolioItem()) {
-                    return constrainedComboBox(field, record);
-                } else if (record.isDefect()) {
-                    return constrainedComboBox(field, record);
-                } else if (record.isTask()) {
-                    return buildStateField(field, record);
-                } else {
-                    return Rally.ui.detail.view.DetailEditorFactory.getEditorByType(field, record);
-                }
-            },
-
-            SubmittedBy:  function(field, record) {
-                return userSearchComboBox(field, record, true);
-            },
-
-            TargetProject: buildTargetProjectEditor,
-
-            ToDo: buildNumberField
         },
 
         typeEditors: {
+
             'boolean': function (field, record) {
                 var choices = Ext.create('Ext.data.Store', {
                     fields: ['value', 'display'],
@@ -338,65 +283,83 @@
                 });
 
                 return Ext.create('Rally.ui.combobox.ComboBox', {
-                    name: field.name,
+                    name: field.displayName,
                     store: choices,
                     queryMode: 'local',
                     displayField: 'display',
                     valueField: 'value',
+                    width: '25%',
+                    minWidth: 200,
                     labelAlign: 'right',
+                    labelWidth: Rally.technicalservices.DetailEditorFactory.labelWidth,
+                    labelCls: Rally.technicalservices.DetailEditorFactory.labelCls,
                     value: record.get(field.name),
                     defaultSelectionPosition: 'last'
                 });
             },
             date: function (field, record) {
-                var plugins = [];
-                if (_.contains(['CreationDate', 'OpenedDate', 'ClosedDate'], field.name)) {
-                    plugins.push('rallydetailreadonlyrefreshingfield');
-                }
+
                 return Ext.create('Rally.ui.DateField', {
                     format: Rally.util.DateTime.getUserExtDateFormat(),
                     validateOnChange: false,
-                    name: field.name,
+                    name: field.displayName,
                     value: record.get(field.name),
+                    width: '25%',
+                    minWidth: 200,
                     labelAlign: 'right',
-                    clientMetrics: {
-                        event: 'select',
-                        description: 'field select'
-                    },
-                    plugins: plugins
+                    labelWidth: Rally.technicalservices.DetailEditorFactory.labelWidth,
+                    labelCls: Rally.technicalservices.DetailEditorFactory.labelCls
                 });
             },
             'decimal': function (field, record) {
-                return Ext.create('Rally.ui.detail.view.DetailNumberField', {
-                    name: field.name,
-                    value: record.get(field.name),
+                var value = Number(record.get(field.name)) || 0;
+                return Ext.create('Rally.ui.NumberField', {
+                    name: field.displayName,
+                    displayName: field.displayName,
+                    value: value,
+                    labelAlign: 'right',
+                    height: getDefaultHeight(),
                     field: field,
-                    keyNavEnabled: false,
-                    mouseWheelEnabled: false,
-                    fieldStyle: 'border-right-width: 1px; background-color: light-green;',
-                    clientMetrics: {
-                        event: 'blur',
-                        description: 'field blur'
-                    }
+                    hideTrigger: true,
+                    width: '25%',
+                    labelSeparator: "",
+                    minWidth: 200,
+                    labelAlign: 'right',
+                    labelWidth: Rally.technicalservices.DetailEditorFactory.labelWidth,
+                    labelCls: Rally.technicalservices.DetailEditorFactory.labelCls,
+                    padding: Rally.technicalservices.DetailEditorFactory.padding
                 });
             },
             'integer': function (field, record) {
-                return Ext.create('Rally.ui.detail.view.DetailNumberField', {
-                    name: field.name,
-                    value: record.get(field.name),
+
+                var value = Number(record.get(field.name)) || 0;
+                return Ext.create('Rally.ui.NumberField', {
+                    name: field.displayName,
+                    displayName: field.displayName,
+                    value: value,
+                    labelAlign: 'right',
+                    height: getDefaultHeight(),
                     field: field,
-                    clientMetrics: {
-                        event: 'blur',
-                        description: 'field blur'
-                    }
+                    hideTrigger: true,
+                    width: '25%',
+                    labelSeparator: "",
+                    minWidth: 200,
+                    labelAlign: 'right',
+                    labelWidth: Rally.technicalservices.DetailEditorFactory.labelWidth,
+                    labelCls: Rally.technicalservices.DetailEditorFactory.labelCls,
+                    padding: Rally.technicalservices.DetailEditorFactory.padding
                 });
+
             },
             'object': function (field, record) {
                 if (field.attributeDefinition.Constrained) {
                     return Ext.create('Rally.ui.combobox.ComboBox', {
-                        name: field.name,
+                        name: field.displayName,
                         value: record.get(field.name),
                         editable: false,
+                        labelWidth: Rally.technicalservices.DetailEditorFactory.labelWidth,
+                        labelCls: Rally.technicalservices.DetailEditorFactory.labelCls,
+                        labelAlign: 'right',
                         storeConfig: {
                             autoLoad: true,
                             model: field.attributeDefinition.SchemaType,
@@ -407,28 +370,32 @@
 
                 } else {
                     return Ext.create('Rally.ui.TextField', {
-                        name: field.name,
+                        name: field.displayName,
                         value: record.get(field.name),
-                        clientMetrics: {
-                            event: 'blur',
-                            description: 'field blur'
-                        }
+                        labelWidth: Rally.technicalservices.DetailEditorFactory.labelWidth,
+                        labelCls: Rally.technicalservices.DetailEditorFactory.labelCls,
+                        padding: Rally.technicalservices.DetailEditorFactory.padding,
+                        labelAlign: 'right'
+
                     });
                 }
             },
             quantity: function (field, record) {
-                return Ext.create('Rally.ui.detail.view.DetailNumberField', {
-                    name: field.name,
-                    value: record.get(field.name),
+                var value = Number(record.get(field.name)) || 0;
+                return Ext.create('Rally.ui.NumberField', {
+                    name: field.displayName,
+                    displayName: field.displayName,
+                    value: value,
+                    labelAlign: 'right',
+                    height: getDefaultHeight(),
                     field: field,
-                    hideTrigger: true,
-                    keyNavEnabled: false,
-                    mouseWheelEnabled: false,
-                    fieldStyle: 'border-right-width: 1px; background-color: light-blue;',
-                    clientMetrics: {
-                        event: 'blur',
-                        description: 'field blur'
-                    }
+                    width: '25%',
+                    labelSeparator: "",
+                    minWidth: 200,
+                    labelAlign: 'right',
+                    labelWidth: Rally.technicalservices.DetailEditorFactory.labelWidth,
+                    labelCls: Rally.technicalservices.DetailEditorFactory.labelCls,
+                    padding: Rally.technicalservices.DetailEditorFactory.padding
                 });
             },
             rating: function (field, record) {
@@ -437,16 +404,19 @@
                         allowNoEntry: !field.required || record.get(field.name) === 'None',
                         ratingNoEntryString: '-- No Entry --',
                         noEntryValue: 'None',
+                        labelAlign: 'right',
                         useNullForNoEntryValue: false
                     });
                 } else {
                     return Ext.create('Rally.ui.TextField', {
-                        name: field.name,
+                        name: field.displayName,
                         value: record.get(field.name),
-                        clientMetrics: {
-                            event: 'blur',
-                            description: 'field blur'
-                        }
+                        width: '25%',
+                        minWidth: 200,
+                        labelAlign: 'right',
+                        labelWidth: Rally.technicalservices.DetailEditorFactory.labelWidth,
+                        labelCls: Rally.technicalservices.DetailEditorFactory.labelCls,
+                        padding: Rally.technicalservices.DetailEditorFactory.padding
                     });
                 }
             },
@@ -457,13 +427,14 @@
                     return Ext.create('Rally.ui.TextField', {
                         name: field.name,
                         value: record.get(field.name),
-                        height: 30,
-                        width: '100%',
+                        height: getDefaultHeight(),
+                        minWidth: 200,
+                        labelSeparator: "",
                         labelAlign: 'right',
-                        clientMetrics: {
-                            event: 'blur',
-                            description: 'field blur'
-                        }
+                        labelWidth: Rally.technicalservices.DetailEditorFactory.labelWidth,
+                        labelCls: Rally.technicalservices.DetailEditorFactory.labelCls,
+                        width: Rally.technicalservices.DetailEditorFactory.controlWidth,
+                        padding: Rally.technicalservices.DetailEditorFactory.padding
                     });
                 }
             },
@@ -472,58 +443,11 @@
                     editor;
 
                 if (isEditable) {
-                    editor = Ext.create('Rally.ui.richtext.RichTextEditor', {
+                    editor = Ext.create('Rally.technicalservices.RichTextEditor',{
                         field: field,
                         record: record,
-                        title: field.name,
-                        name: field.name,
-                        value: record.get(field.name),
-                        growToFitContent: true,
-                        width: '100%',
-                        allowImageUpload: true,
-                        toolbarAlwaysEnabled: false,
-                        showUndoButton: true,
-                        disableUndoButtonWithToolbar: false,
-                        indicatorFoldUnder: true,
-                        clientMetrics: {
-                            event: 'blur',
-                            description: 'field blur'
-                        },
-                        useLinkBubble: true,
-                        listeners: {
-                            focus: function () {
-                                var focusedField = Ext.ComponentQuery.query('rallydetailfieldcontaineredpcomplete[focused=true]')[0];
-
-                                if (focusedField) {
-                                    var editor = focusedField.editor;
-                                    if (editor !== this) {
-                                        focusedField.clearSelection();
-                                        editor.hasFocus = false;
-                                        editor.fireEvent('blur');
-                                        if (editor.collapse) {
-                                            editor.collapse();
-                                        }
-                                    }
-                                }
-                            },
-                            blur: function () {
-                                var fields = Ext.ComponentQuery.query('rallydetailfieldcontaineredpcomplete');
-                                var previouslyFocusedField = _.find(fields, function (field) {
-                                    if (field.editor) {
-                                        return field.editor.hasFocus;
-                                    }
-                                }, this);
-                                if (previouslyFocusedField) {
-                                    previouslyFocusedField.focusField();
-                                }
-                            },
-                            imageuploaded: function(imageInfo) {
-                                var controller = Rally.ui.detail.DetailHelper.getController();
-                                if(controller) {
-                                    controller._handleImageUpload(imageInfo);
-                                }
-                            }
-                        }
+                        labelAlign: 'right',
+                        padding: Rally.technicalservices.DetailEditorFactory.padding
                     });
                 } else {
                     editor = Ext.create('Rally.ui.richtext.RichTextEditorReadOnly', {
@@ -548,41 +472,4 @@
         }
     });
 
-    function buildTimeboxFilter(timebox) {
-        var filter = Ext.create('Rally.data.wsapi.Filter', {
-            property: 'State',
-            operator: '!=',
-            value: 'Accepted'
-        });
-        if (timebox && _.isString(timebox._refObjectName)) {
-            filter = filter.or(Ext.create('Rally.data.wsapi.Filter', {
-                property: 'Name',
-                operator: '=',
-                value: timebox._refObjectName
-            }));
-        }
-        return filter;
-    }
-
-    function buildNameEditor(field, record, defaultValue) {
-        var placeholder = defaultValue;
-        return Ext.create('Rally.ui.detail.SimpleTextDetailField', {
-            name: field.name,
-            value: record.get(field.name),
-            placeholder: placeholder,
-            indicatorFoldUnder: true,
-            clientMetrics: {
-                event: 'blur',
-                description: 'field blur'
-            }
-        });
-    }
-
-    function buildNameRenderer(field, record) {
-        return Ext.create('Ext.form.field.Display', {
-            name: field.name,
-            value: record.get(field.name),
-            cls: 'edp-name-renderer'
-        });
-    }
 })();
