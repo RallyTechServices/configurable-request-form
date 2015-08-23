@@ -12,8 +12,7 @@ Ext.define("configurable-request-form", {
     formModel: undefined,
 
     items: [
-        {xtype:'container',itemId:'display_box', flex: 1},
-        {xtype:'container',itemId:'button_box', flex: 1}
+
     ],
     
     launch: function() {
@@ -35,28 +34,36 @@ Ext.define("configurable-request-form", {
             config_obj = Ext.JSON.decode(settings.formFieldConfiguration);
         }
 
-        this.down('#display_box').removeAll();
-
         this.logger.log('_validateSettings formFieldConfig', config_obj);
         if (_.isEmpty(config_obj)){
-            this.down('#display_box').add({
+            this.add({
                 xtype: 'container',
+                itemId: 'display_box',
+                flex: 1,
                 html: 'No form configuration has been defined.<br/>Please use the App Settings to configure the form.',
                 style: {
                     fontFamily: 'ProximaNovaLight, Helvetica, Arial'
                 }
             });
         } else {
-            this._buildForm(model, config_obj);
+            this.formConfiguration = config_obj;
+            this.model = model;
+            this._showGrid(model);
         }
     },
     _buildForm: function(model, form_config){
         this.logger.log('_buildForm');
 
+        this._clearWindow();
+
+        this.add({xtype:'container',itemId:'display_box', flex: 1});
+        this.add({xtype:'container',itemId:'button_box', flex: 1, layout: {type: 'hbox', pack: 'center'}});
+
         this.down('#display_box').add({
             xtype: 'tsrequestform',
             itemId: 'requestform',
             model: model,
+            instructions: this.getSetting('formInstructions'),
             formConfiguration: form_config,
             listeners: {
                 scope: this,
@@ -70,9 +77,23 @@ Ext.define("configurable-request-form", {
             xtype:'rallybutton',
             text: 'Submit',
             itemId: 'btn-submit',
+            style: {
+                textAlign: 'center'
+            },
             width: 75,
             scope: this,
             handler: this._save
+        });
+        this.down('#button_box').add({
+            xtype:'rallybutton',
+            text: 'Cancel',
+            itemId: 'btn-cancel',
+            style: {
+                textAlign: 'center'
+            },
+            width: 75,
+            scope: this,
+            handler: this._cancel
         });
 
     },
@@ -83,8 +104,10 @@ Ext.define("configurable-request-form", {
     _onSaved: function(newRecord){
         this.logger.log('_onSaved',newRecord);
         Rally.ui.notify.Notifier.showCreate({artifact: newRecord});
-        this.down('#btn-submit').setVisible(false);
-        //Rally.nav.Manager.showDetail(newRecord.get('_ref'));
+        this._showGrid(this.model);
+    },
+    _cancel: function(){
+        this._showGrid(this.model);
     },
     _onWarning: function(obj){
         Rally.ui.notify.Notifier.showWarning(obj);
@@ -92,9 +115,83 @@ Ext.define("configurable-request-form", {
     _onError: function(obj){
         Rally.ui.notify.Notifier.showError(obj);
     },
-    _onReady: function(obj){
-        // Rally.ui.notify.Notifier.show({message: 'Ready!'});
+    _onReady: function(form){
+        this.logger.log('_onReady', form);
+
+        form.doLayout();
+        form.setWidth('95%')
+        this.down('#display_box').doLayout();
     },
+
+    _clearWindow: function(){
+        if (this.down('#story-grid')){
+            this.down('#story-grid').destroy();
+        }
+        if (this.down('#display_box')){
+            this.down('#display_box').destroy();
+        }
+        if (this.down('#button_box')){
+            this.down('#button_box').destroy();
+        }
+    },
+    _showGrid: function(model) {
+        this._clearWindow();
+
+        Ext.create('Rally.data.wsapi.TreeStoreBuilder').build({
+            models: [model],
+            autoLoad: true,
+            enableHierarchy: true,
+            sorters: [
+                {
+                    property: 'CreationDate',
+                    direction: 'DESC'
+                }
+            ]
+        }).then({
+            scope: this,
+            success: function(store){
+                var modelNames = [model],
+                    context = this.getContext();
+                var gb = this.add({
+                    xtype: 'rallygridboard',
+                    context: context,
+                    itemId: 'story-grid',
+                    modelNames: modelNames,
+                    toggleState: 'grid',
+                    stateful: false,
+                    plugins: [{
+                            ptype: 'rallygridboardfieldpicker',
+                            headerPosition: 'right',
+                            modelNames: modelNames,
+                            stateful: true,
+                            stateId: context.getScopedStateId('columns-example')
+                        }
+                    ],
+                    gridConfig: {
+                        store: store,
+                        columnCfgs: ['Name','ScheduleState']
+                    },
+                    height: this.getHeight()
+                });
+                var btn = gb.getHeader().getLeft().add({
+                    xtype: 'rallybutton',
+                    text: 'New Request',
+                    margin: 5
+                });
+                btn.on({
+                    click: this._onNewRequest,
+                    scope: this
+                });
+            },
+            scope: this
+        });
+    },
+
+    _onNewRequest: function() {
+        this.logger.log('_onNewRequest');
+        this._buildForm(this.model, this.formConfiguration)
+    },
+
     getOptions: function() {
         return [
             {
@@ -112,9 +209,18 @@ Ext.define("configurable-request-form", {
         }
 
         return [{
+            name: 'formInstructions',
+            xtype: 'textareafield',
+            fieldLabel: 'Form Instructions',
+            labelAlign: 'top',
+            autoShow: true,
+            width: '100%',
+            margin: 15,
+            height: 100
+        },{
                 name: 'formFieldConfiguration',
                 xtype: 'tsformconfigsettings',
-                fieldLabel: 'Form Field Configuration',
+                fieldLabel: 'Form Field Configuration - Drag rows to specify order on the form',
                 margin: 15,
                 labelAlign: 'top',
                 fields: fields
