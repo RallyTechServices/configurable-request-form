@@ -6,32 +6,38 @@ Ext.define("configurable-request-form", {
     config: {
         defaultSettings: {
             formFieldConfiguration: {},
-            formModelName: 'HierarchicalRequirement'
+            formInstructions: ''
         }
     },
     formModel: undefined,
-
-    items: [
-
-    ],
-    
+    formModelName: 'HierarchicalRequirement',
+    items: [],
+    externalAppSettingsKey: 'technicalServicesConfigurableFormAppSettings',
     launch: function() {
-        Rally.technicalservices.WsapiToolbox.fetchModel(this.getSetting('formModelName')).then({
-           scope: this,
-           success: function(model){
-               this.formModel = model;
-               this._validateSettings(this.getSettings(), model);
-           },
-           failure: function(msg){
-                Rally.ui.notify.Notifier.showError({message: msg});
-           }
-       });
+        if (this.isExternal()){
+            this.getExternalAppSettings(this.externalAppSettingsKey);
+        } else {
+            this.onSettingsUpdate(this.getSettings());
+        }
     },
-    _validateSettings: function(settings, model){
-        this.logger.log('_validateSettings settings', settings);
-        var config_obj = settings.formFieldConfiguration;
+    _prepareApp: function(){
+        this.logger.log('_prepareApp', this.formModelName, this.formInstructions, this.formFieldConfiguration);
+        Rally.technicalservices.WsapiToolbox.fetchModel(this.formModelName).then({
+            scope: this,
+            success: function(model){
+                this.formModel = model;
+                this._validateSettings(model);
+            },
+            failure: function(msg){
+                Rally.ui.notify.Notifier.showError({message: msg});
+            }
+        });
+    },
+    _validateSettings: function(model){
+        this.logger.log('_validateSettings');
+        var config_obj = this.formFieldConfiguration;
         if (!Ext.isObject(config_obj)){
-            config_obj = Ext.JSON.decode(settings.formFieldConfiguration);
+            config_obj = Ext.JSON.decode(this.formFieldConfiguration);
         }
 
         this.logger.log('_validateSettings formFieldConfig', config_obj);
@@ -63,7 +69,7 @@ Ext.define("configurable-request-form", {
             xtype: 'tsrequestform',
             itemId: 'requestform',
             model: model,
-            instructions: this.getSetting('formInstructions'),
+            instructions: this.formInstructions,
             formConfiguration: form_config,
             listeners: {
                 scope: this,
@@ -237,6 +243,52 @@ Ext.define("configurable-request-form", {
     onSettingsUpdate: function (settings){
         this.logger.log('onSettingsUpdate',settings);
         Ext.apply(this, settings);
-        this._validateSettings(settings, this.formModel);
+        this.saveExternalAppSettings(this.externalAppSettingsKey, settings);
+        this._prepareApp();
+    },
+    saveExternalAppSettings: function(key, settings){
+
+        var prefs = {};
+        _.each(settings, function(val, setting_key){
+            var pref_key = key + '.' + setting_key;
+            prefs[pref_key] = val;
+        });
+
+        this.logger.log('SaveExternalAppSettings', key, settings, prefs);
+        Rally.data.PreferenceManager.update({
+            project: this.getContext().getProject()._ref,
+            settings: prefs,
+            scope: this,
+            success: function(updatedRecords, notUpdatedRecords) {
+                this.logger.log('settings saved', key, updatedRecords, notUpdatedRecords);
+            }
+        });
+    },
+    getExternalAppSettings: function(key){
+        Rally.data.PreferenceManager.load({
+            project: this.getContext().getProject()._ref,
+            additionalFilters: [{
+                property: 'name',
+                operator: 'contains',
+                value: key
+            }],
+            scope: this,
+            cache: false,
+            success: function(prefs) {
+                this.logger.log('settings loaded', key, prefs);
+                _.each(prefs, function(val, pref_name){
+                    if (/\.formInstructions$/.test(pref_name)){
+                        this.formInstructions = val;
+                    }
+                    if (/\.formFieldConfiguration$/.test(pref_name)){
+                        if (val && !_.isEmpty(val)){
+                            this.formFieldConfiguration = Ext.JSON.decode(val);
+                        }
+                    }
+                }, this);
+
+                this._prepareApp();
+            }
+        });
     }
 });

@@ -1,17 +1,36 @@
-<!DOCTYPE html>
-<html>
-<head>
+<!-- for confluence, the head/body tags interfere with rendering -->
+
     <title>Configurable Request Form</title>
-    <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
+    <!--  (c) 2014,2015 Rally Software Development Corp.  All Rights Reserved. -->
     <!--  Build Date: Sun Aug 23 2015 17:34:15 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
         var APP_BUILD_DATE = "Sun Aug 23 2015 17:34:15 GMT-0700 (PDT)";
-        var CHECKSUM = 53985487974;
     </script>
     
-    <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
+    <script type="text/javascript" src="https://demo-services1.rallydev.com//apps/2.0/sdk-debug.js?apiKey=_PUT_APIKEY_HERE_"></script>
 
+<!-- for confluence, don't render as a viewport, so we override the app creation step -->
+
+    <script type="text/javascript">
+        Ext.override(Rally.sdk.Bootstrapper,{
+            _launchAppInViewport: function (className, settings, timeboxScope) {
+                console.log('_launchAppInViewport');
+                this._wireIoHeaderHandlers();
+                this.app = this._createApp(className, settings, timeboxScope);
+    
+                Ext.create('Ext.container.Container', {
+                    layout: 'fit',
+                    items: [ this.app ],
+                    renderTo: 'tech_services_target',
+                    height: 800,
+                    width: 800
+                });
+            }
+        });
+        
+    </script>
+    
     <script type="text/javascript">
         Rally.onReady(function() {
              
@@ -1635,6 +1654,4 @@ Ext.define("configurable-request-form", {
 }
     </style>
 
-</head>
-<body></body>
-</html>
+<div id="tech_services_target"></div>
