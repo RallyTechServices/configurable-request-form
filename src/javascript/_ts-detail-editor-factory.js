@@ -193,6 +193,7 @@
         fieldEditors: {
 
             Attachments: function(field, record){
+
                 return Ext.create('Rally.technicalservices.AttachmentEditor',{
                     record: record,
                     title: field.displayName

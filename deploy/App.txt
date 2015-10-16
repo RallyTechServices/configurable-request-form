@@ -3,11 +3,11 @@
 <head>
     <title>Configurable Request Form</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Sun Aug 23 2015 17:34:15 GMT-0700 (PDT) -->
+    <!--  Build Date: Fri Oct 16 2015 11:18:21 GMT-0600 (MDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sun Aug 23 2015 17:34:15 GMT-0700 (PDT)";
-        var CHECKSUM = 53985487974;
+        var APP_BUILD_DATE = "Fri Oct 16 2015 11:18:21 GMT-0600 (MDT)";
+        var CHECKSUM = 117390041272;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -171,9 +171,25 @@ Ext.define('Rally.technicalservices.Logger',{
 
 });
 
+Ext.define('Rally.technicalservices.AttachmentUploader',{
+    extend: 'Rally.ui.detail.AttachmentUploader',
+
+    uploadAttachments: function(formData){
+        var url = Rally.ui.detail.AttachmentUploader.legacyAttachmentEndpoint;
+        //    file = files[0];
+        //
+        //var formData = new FormData();
+        //formData.append('file', file);
+
+        this.xhr.open('POST', url, true);
+
+        this.xhr.send(formData);
+    }
+});
+
 Ext.define('Rally.technicalservices.AttachmentEditor',{
     extend: 'Ext.panel.Panel',
-    alias: 'widget.tsattachmentgrid',
+    alias: 'widget.tsattachmenteditor',
     height: 200,
     width: '100%',
     record: undefined,
@@ -186,7 +202,7 @@ Ext.define('Rally.technicalservices.AttachmentEditor',{
         this.callParent(arguments);
 
         this._store = Ext.create('Ext.data.Store',{
-            fields: ['filename'],
+            fields: ['filename','content','description'],
             data: []
         });
 
@@ -214,17 +230,12 @@ Ext.define('Rally.technicalservices.AttachmentEditor',{
 
 
     },
-    addFile: function(button, e, value){
-         //var reader = new FileReader();
-        //reader.readAsBinaryString(value, "UTF-8");
-        //reader.onload = function (evt) {
-        //    console.log('onload', evt.target.result);
-        this._store.add({filename: value, name: '', description: '', content: ''});
-        //}
-        //reader.onerror = function (evt) {
-        //    console.log('onload', evt.target.result);
-        //}
+    addFile: function(e, value, filepath){
+        var formData = new FormData();
+        formData.append('file', e.fileInputEl.dom.files[0]);
 
+        var filename = e.fileInputEl.dom.files[0].name || filepath.split(/\/|\\/).pop();
+        this._store.add({filename: filename, description: '', content: formData});
     },
     removeFile: function(grid, rowIndex, colIndex) {
         var rec = grid.getStore().getAt(rowIndex);
@@ -245,7 +256,16 @@ Ext.define('Rally.technicalservices.AttachmentEditor',{
             dataIndex: 'filename',
             text: 'File',
             flex: 1,
+            editor: {
+                xtype: 'filefield',
+                buttonConfig: {
+                    cls: 'rly-small secondary'
+                }
+            },
             renderer: function(v,m,r){
+                if (v == null){
+                    return 'Click to Add...'
+                }
                 return v;
             }
         },{
@@ -457,6 +477,7 @@ Ext.define('Rally.technicalservices.AttachmentEditor',{
         fieldEditors: {
 
             Attachments: function(field, record){
+
                 return Ext.create('Rally.technicalservices.AttachmentEditor',{
                     record: record,
                     title: field.displayName
@@ -842,6 +863,627 @@ Ext.define('Rally.technicalservices.RichTextEditor', {
     }
 });
 
+Ext.define('Rally.technicalservices.plugin.CellEditing', {
+        extend: 'Ext.grid.plugin.CellEditing',
+        alias: 'plugin.tscellediting',
+
+        clicksToEdit: 1,
+
+        //=============================
+        // Private method override danger zone
+        //
+        onEnterKey: Ext.emptyFn,
+
+        onEscKey: function() {
+            this.callParent(arguments);
+
+            //Need to return true to prevent underlying key map
+            //from stopping the escape key event in case other components need to handle it
+            return true;
+        },
+
+        //
+        // End private method override danger zone
+        //=============================
+
+        /**
+         * @event recordupdatesuccess
+         * Publishes the global {@link Rally.Message#recordUpdateSuccess} message when a record
+         * is successfully updated via inline-editing
+         * @param {Object[]} records The updated records
+         */
+        /**
+         * @event recordupdatefailure
+         * Publishes the global {@link Rally.Message#recordUpdateFailure} message when a record
+         * is unsuccessfully updated via inline-editing
+         */
+
+        init: function() {
+            this.callParent(arguments);
+
+            this.grid.addEvents(
+                /**
+                 * @event
+                 * Fires after an inline edit occurs
+                 * @param {Rally.ui.grid.Grid} this
+                 * @param {Ext.grid.plugin.Editing} editor The editor object from Ext.grid.plugin.CellEditing#edit
+                 * @param {Object} event The e object from Ext.grid.plugin.CellEditing#edit
+                 */
+                'inlineedit',
+                /**
+                 * @event
+                 * Fires when an inline edit has been saved
+                 * @param {Rally.ui.grid.Grid} this
+                 * @param {Rally.data.Model[]} records The records array from Ext.data.Operation#callback
+                 * @param {Ext.data.Operation} operation See Ext.data.Operation#callback
+                 * @param {Rally.data.Model} record The original record that was updated
+                 * @param {Ext.grid.column.Column) The column that was updated
+                     */
+                'inlineeditsaved'
+            );
+
+            this.mon(this.grid, 'edit', this._saveInlineEdit, this);
+             this.mon(this, 'beforeedit', this._onBeforeEdit, this);
+        },
+
+        getEditor: function(record, column) {
+            console.log('getEditor',record);
+            var editor = this.callParent(arguments);
+            editor.completeOnEnter = false;
+            editor.record = record;
+
+            if (!editor._beforeCompleteListenerAdded) {
+                editor.on('beforecomplete', this._onBeforeStart, this);
+                editor._beforeCompleteListenerAdded = true;
+            }
+            editor.offsets = [0, 1];
+            return editor;
+        },
+
+        showEditor: function(ed, context, value) {
+            var superclassShowEditorFn;
+
+            if (Ext.isFunction(ed.prepareEditor)) {
+                superclassShowEditorFn = Ext.bind(this.superclass.showEditor, this, [ed, context, value]);
+                ed.prepareEditor(context, superclassShowEditorFn);
+            } else {
+                this._resetFieldIfNeeded(ed.field, context.record, context.field);
+                this.callParent(arguments);
+            }
+        },
+
+        _resetFieldIfNeeded: function (editorField, record, columnFieldName) {
+            if (!editorField || !editorField.setField || !record || !record.getField || !columnFieldName) {
+                return;
+            }
+
+            var newField = record.getUnmappedField ? record.getUnmappedField(columnFieldName) : null;
+
+            if (!newField) {
+                newField = record.getField(columnFieldName);
+            }
+
+            if (newField) {
+                editorField.setField(newField);
+            }
+        },
+
+        onSpecialKey: function(editor, field, e) {
+            var keyCode = e.getKey(),
+                sm;
+
+            if (keyCode === e.ENTER && !editor.completeOnEnter) {
+                this.recordAction({ component: this.grid, description: 'typed enter on grid cell' });
+                e.stopEvent();
+
+                sm = this.grid.getSelectionModel();
+                sm.onEditorEnter(this, field, e);
+            } else if (keyCode === e.TAB) {
+                this.recordAction({ component: this.grid, description: 'typed tab on grid cell' });
+            }
+
+            this.callParent(arguments);
+        },
+
+        onCellClick: function(view, cell, colIdx, record, row, rowIdx, e) {
+            if (this._eventTargetIsNotALink(e)) {
+                this.recordAction({ component: this.grid, description: 'clicked grid cell' });
+                this.callParent(arguments);
+            }
+        },
+
+        _eventTargetIsNotALink: function(e) {
+            return Ext.isEmpty(e.getTarget()) ||
+                Ext.isEmpty(e.getTarget().dom) ||
+                e.getTarget().dom.nodeName.toLowerCase() !== 'a';
+        },
+
+        _onRecordRemoved: function(store, record){
+            var activeEditor = this.getActiveEditor();
+            if (activeEditor){
+                // If the active editor is tied to the record that was removed from the store
+                // then then cancel the edit to remove the editor
+                if(activeEditor.record === record){
+                    activeEditor.cancelEdit();
+                } else {
+                    //When a record is removed, we need to reposition
+                    //the activeEditor to the new rows position
+                    activeEditor.realign(true);
+                    if(activeEditor.field.doAlign) {
+                        activeEditor.field.doAlign();
+                    }
+                }
+            }
+        },
+
+        _onBeforeEdit: function(editor, e) {
+            var field;
+            if (e.record.getField) {
+                field = e.record.getField(e.field);
+                return !!(field && !field.readOnly && !field.hidden && e.record.get('updatable'));
+            }
+        },
+
+        _saveInlineEdit: function(editor, event) {
+            var changes = event.record.getChanges();
+            if (!Ext.Object.isEmpty(changes)) {
+                var grid = this.grid,
+                    record = this.context.record,
+                    column = this.context.column;
+
+                grid.suspendLayouts();
+
+                grid.fireEvent('inlineedit', this, editor, event);
+                event.record.save({
+                    requester: grid,
+                    callback: function(savedRecord, operation) {
+                        var success = operation.success,
+                            grid = this.grid;
+
+                        if (this.publishMessages) {
+                            if (success) {
+                                var associatedRecords;
+                                if (grid.store.isCollectionStore) {
+                                    associatedRecords = grid.store.record;
+                                }
+                                this.publish(Rally.Message.objectUpdate, savedRecord, _.keys(changes), this, [associatedRecords]);
+                                this.publish(Rally.Message.recordUpdateSuccess, savedRecord);
+                            } else {
+                                this.publish(Rally.Message.recordUpdateFailure);
+                            }
+                        }
+
+                        grid.fireEvent('inlineeditsaved', this, savedRecord, operation, record, column);
+                        if (success && Ext.getClassName(grid) === 'Rally.ui.grid.Grid') {
+                            grid.highlightRowForRecord(savedRecord);
+                        }
+
+                        grid.resumeLayouts();
+                    },
+                    scope: this,
+                    params: {
+                        fetch: grid.getAllFetchFields()
+                    }
+                });
+            }
+        },
+
+        _onBeforeStart: function(editor) {
+            var retval = !(editor.field && editor.field.store && editor.field.store.loading);
+
+            if (!retval) {
+                editor.hideEdit();
+            }
+            return retval;
+        },
+
+        getActiveEditorInputId: function() {
+            return this.getActiveEditor().field.inputEl.id;
+        }
+    });
+
+
+Ext.define('Rally.technicalservices.FieldConfigurationGrid', {
+
+    extend: 'Ext.grid.Panel',
+
+    alias: 'widget.tsfieldconfig',
+
+    uses: [
+        'Ext.grid.plugin.CellEditing',
+        'Ext.grid.property.Store',
+        'Ext.grid.property.HeaderContainer',
+        'Ext.XTemplate',
+        'Ext.grid.CellEditor',
+        'Ext.form.field.Date',
+        'Ext.form.field.Text',
+        'Ext.form.field.Number',
+        'Ext.form.field.ComboBox'
+    ],
+
+    /**
+     * @cfg {String} valueField
+     * The name of the field from the property store to use as the value field name.
+     * This may be useful if you do not configure the property Grid from an object, but use your own store configuration.
+     */
+    valueField: 'value',
+
+    /**
+     * @cfg {String} nameField
+     * The name of the field from the property store to use as the property field name.
+     * This may be useful if you do not configure the property Grid from an object, but use your own store configuration.
+     */
+    nameField: 'name',
+
+    /**
+     * @cfg {Boolean} inferTypes
+     * True to automatically infer the {@link #sourceConfig type} based on the initial value passed
+     * for each field. This ensures the editor remains the correct type even if the value is blanked
+     * and becomes empty.
+     */
+    inferTypes: true,
+
+    /**
+     * @cfg {Number/String} [nameColumnWidth=115]
+     * Specify the width for the name column. The value column will take any remaining space.
+     */
+
+    // private config overrides
+    enableColumnMove: false,
+    columnLines: true,
+    stripeRows: false,
+    trackMouseOver: false,
+    clicksToEdit: 1,
+    enableHdMenu: false,
+
+    gridCls: Ext.baseCSSPrefix + 'property-grid',
+
+    // private
+    initComponent : function() {
+        var me = this;
+
+        me.source = me.source || {};
+        me.addCls(me.gridCls);
+        me.plugins = me.plugins || [];
+
+        // Enable cell editing. Inject a custom startEdit which always edits column 1 regardless of which column was clicked.
+        me.plugins.push(new Ext.grid.plugin.CellEditing({
+            clicksToEdit: me.clicksToEdit,
+
+            // Inject a startEdit which always edits the value column
+            startEdit: function(record, column) {
+                // Maintainer: Do not change this 'this' to 'me'! It is the CellEditing object's own scope.
+                return this.self.prototype.startEdit.call(this, record, me.valueColumn);
+            }
+        }));
+
+        me.selModel = {
+            selType: 'cellmodel',
+            onCellSelect: function(position) {
+                // We are only allowed to select the value column.
+                position.columnHeader = me.valueColumn;
+                position.column = me.valueColumn.getVisibleIndex();
+                return this.self.prototype.onCellSelect.call(this, position);
+            }
+        };
+
+        me.sourceConfig = Ext.apply({}, me.sourceConfig);
+
+        // Create a property.Store from the source object unless configured with a store
+        if (!me.store) {
+            me.propStore = me.store = new Ext.grid.property.Store(me, me.source);
+        }
+        me.configure(me.sourceConfig);
+
+        if (me.sortableColumns) {
+            me.store.sort('name', 'ASC');
+        }
+        me.columns = new Ext.grid.property.HeaderContainer(me, me.store);
+
+        me.addEvents(
+            /**
+             * @event beforepropertychange
+             * Fires before a property value changes.  Handlers can return false to cancel the property change
+             * (this will internally call {@link Ext.data.Model#reject} on the property's record).
+             * @param {Object} source The source data object for the grid (corresponds to the same object passed in
+             * as the {@link #source} config property).
+             * @param {String} recordId The record's id in the data store
+             * @param {Object} value The current edited property value
+             * @param {Object} oldValue The original property value prior to editing
+             */
+            'beforepropertychange',
+            /**
+             * @event propertychange
+             * Fires after a property value has changed.
+             * @param {Object} source The source data object for the grid (corresponds to the same object passed in
+             * as the {@link #source} config property).
+             * @param {String} recordId The record's id in the data store
+             * @param {Object} value The current edited property value
+             * @param {Object} oldValue The original property value prior to editing
+             */
+            'propertychange'
+        );
+        me.callParent();
+
+        // Inject a custom implementation of walkCells which only goes up or down
+        me.getView().walkCells = this.walkCells;
+
+        // Set up our default editor set for the 4 atomic data types
+        me.editors = {
+            'date'    : new Ext.grid.CellEditor({ field: new Ext.form.field.Date({selectOnFocus: true})}),
+            'string'  : new Ext.grid.CellEditor({ field: new Ext.form.field.Text({selectOnFocus: true})}),
+            'number'  : new Ext.grid.CellEditor({ field: new Ext.form.field.Number({selectOnFocus: true})}),
+            'boolean' : new Ext.grid.CellEditor({ field: new Ext.form.field.ComboBox({
+                editable: false,
+                store: [[ true, me.headerCt.trueText ], [false, me.headerCt.falseText ]]
+            })})
+        };
+
+        // Track changes to the data so we can fire our events.
+        me.store.on('update', me.onUpdate, me);
+    },
+
+    configure: function(config){
+        var me = this,
+            store = me.store,
+            i = 0,
+            len = me.store.getCount(),
+            nameField = me.nameField,
+            valueField = me.valueField,
+            name, value, rec, type;
+
+        me.configureLegacy(config);
+
+        if (me.inferTypes) {
+            for (; i < len; ++i) {
+                rec = store.getAt(i);
+                name = rec.get(nameField);
+                if (!me.getConfig(name, 'type')) {
+                    value = rec.get(valueField);
+                    if (Ext.isDate(value)) {
+                        type = 'date';
+                    } else if (Ext.isNumber(value)) {
+                        type = 'number';
+                    } else if (Ext.isBoolean(value)) {
+                        type = 'boolean';
+                    } else {
+                        type = 'string';
+                    }
+                    me.setConfig(name, 'type', type);
+                }
+            }
+        }
+    },
+
+    getConfig: function(fieldName, key, defaultValue) {
+        var config = this.sourceConfig[fieldName],
+            out;
+
+        if (config) {
+            out = config[key];
+        }
+        return out || defaultValue;
+    },
+
+    setConfig: function(fieldName, key, value) {
+        var sourceCfg = this.sourceConfig,
+            o = sourceCfg[fieldName];
+
+        if (!o) {
+            o = sourceCfg[fieldName] = {
+                __copied: true
+            };
+        } else if (!o.__copied) {
+            o = Ext.apply({
+                __copied: true
+            }, o);
+            sourceCfg[fieldName] = o;
+        }
+        o[key] = value;
+        return value;
+    },
+
+    // to be deprecated in 4.2
+    configureLegacy: function(config){
+        var me = this;
+
+        me.copyLegacyObject(config, me.customRenderers, 'renderer');
+        me.copyLegacyObject(config, me.customEditors, 'editor');
+        me.copyLegacyObject(config, me.propertyNames, 'displayName');
+
+        //<debug>
+        // exclude types since it's new
+        if (me.customRenderers || me.customEditors || me.propertyNames) {
+            if (Ext.global.console && Ext.global.console.warn) {
+                Ext.global.console.warn(this.$className, 'customRenderers, customEditors & propertyNames have been consolidated into a new config, see "sourceConfig". These configurations will be deprecated.');
+            }
+        }
+        //</debug>
+    },
+
+    copyLegacyObject: function(config, o, keyName){
+        var key;
+
+        for (key in o) {
+            if (o.hasOwnProperty(key)) {
+                if (!config[key]) {
+                    config[key] = {};
+                }
+                config[key][keyName] = o[key];
+            }
+        }
+    },
+
+    // @private
+    onUpdate : function(store, record, operation) {
+        var me = this,
+            v, oldValue;
+
+        if (me.rendered && operation == Ext.data.Model.EDIT) {
+            v = record.get(me.valueField);
+            oldValue = record.modified.value;
+            if (me.fireEvent('beforepropertychange', me.source, record.getId(), v, oldValue) !== false) {
+                if (me.source) {
+                    me.source[record.getId()] = v;
+                }
+                record.commit();
+                me.fireEvent('propertychange', me.source, record.getId(), v, oldValue);
+            } else {
+                record.reject();
+            }
+        }
+    },
+
+    // Custom implementation of walkCells which only goes up and down.
+    // Runs in the scope of the TableView
+    walkCells: function(pos, direction, e, preventWrap, verifierFn, scope) {
+        var me = this,
+            valueColumn = me.ownerCt.valueColumn;
+
+        if (direction == 'left') {
+            direction = 'up';
+        } else if (direction == 'right') {
+            direction = 'down';
+        }
+        pos = Ext.view.Table.prototype.walkCells.call(me, pos, direction, e, preventWrap, verifierFn, scope);
+
+        // We are only allowed to navigate to the value column.
+        pos.columnHeader = valueColumn;
+        pos.column = valueColumn.getVisibleIndex();
+        return pos;
+    },
+
+    // @private
+    // Returns the correct editor type for the property type, or a custom one keyed by the property name
+    getCellEditor : function(record, column) {
+        var me = this,
+            propName = record.get(me.nameField),
+            val = record.get(me.valueField),
+            editor = me.getConfig(propName, 'editor'),
+            type = me.getConfig(propName, 'type'),
+            editors = me.editors;
+
+        // A custom editor was found. If not already wrapped with a CellEditor, wrap it, and stash it back
+        // If it's not even a Field, just a config object, instantiate it before wrapping it.
+        if (editor) {
+            if (!(editor instanceof Ext.grid.CellEditor)) {
+                if (!(editor instanceof Ext.form.field.Base)) {
+                    editor = Ext.ComponentManager.create(editor, 'textfield');
+                }
+                editor = me.setConfig(propName, 'editor', new Ext.grid.CellEditor({ field: editor }));
+            }
+        } else if (type) {
+            switch (type) {
+                case 'date':
+                    editor = editors.date;
+                    break;
+                case 'number':
+                    editor = editors.number;
+                    break;
+                case 'boolean':
+                    editor = me.editors['boolean'];
+                    break;
+                default:
+                    editor = editors.string;
+            }
+        } else if (Ext.isDate(val)) {
+            editor = editors.date;
+        } else if (Ext.isNumber(val)) {
+            editor = editors.number;
+        } else if (Ext.isBoolean(val)) {
+            editor = editors['boolean'];
+        } else {
+            editor = editors.string;
+        }
+
+        // Give the editor a unique ID because the CellEditing plugin caches them
+        editor.editorId = propName;
+        return editor;
+    },
+
+    beforeDestroy: function() {
+        var me = this;
+        me.callParent();
+        me.destroyEditors(me.editors);
+        me.destroyEditors(me.customEditors);
+        delete me.source;
+    },
+
+    destroyEditors: function (editors) {
+        for (var ed in editors) {
+            if (editors.hasOwnProperty(ed)) {
+                Ext.destroy(editors[ed]);
+            }
+        }
+    },
+
+    /**
+     * Sets the source data object containing the property data.  The data object can contain one or more name/value
+     * pairs representing all of the properties of an object to display in the grid, and this data will automatically
+     * be loaded into the grid's {@link #store}.  The values should be supplied in the proper data type if needed,
+     * otherwise string type will be assumed.  If the grid already contains data, this method will replace any
+     * existing data.  See also the {@link #source} config value.  Example usage:
+     *
+     *     grid.setSource({
+     *         "(name)": "My Object",
+     *         "Created": Ext.Date.parse('10/15/2006', 'm/d/Y'),  // date type
+     *         "Available": false,  // boolean type
+     *         "Version": .01,      // decimal type
+     *         "Description": "A test object"
+     *     });
+     *
+     * @param {Object} source The data object.
+     * @param {Object} [sourceConfig] A new {@link #sourceConfig object}. If this argument is not passed
+     * the current configuration will be re-used. To reset the config, pass `null` or an empty object literal.
+     */
+    setSource: function(source, sourceConfig) {
+        var me = this;
+
+        me.source = source;
+        if (sourceConfig !== undefined) {
+            me.sourceConfig = Ext.apply({}, sourceConfig);
+            me.configure(me.sourceConfig);
+        }
+        me.propStore.setSource(source);
+    },
+
+    /**
+     * Gets the source data object containing the property data.  See {@link #setSource} for details regarding the
+     * format of the data object.
+     * @return {Object} The data object.
+     */
+    getSource: function() {
+        return this.propStore.getSource();
+    },
+
+    /**
+     * Sets the value of a property.
+     * @param {String} prop The name of the property to set.
+     * @param {Object} value The value to test.
+     * @param {Boolean} [create=false] `true` to create the property if it doesn't already exist.
+     */
+    setProperty: function(prop, value, create) {
+        this.propStore.setValue(prop, value, create);
+    },
+
+    /**
+     * Removes a property from the grid.
+     * @param {String} prop The name of the property to remove.
+     */
+    removeProperty: function(prop) {
+        this.propStore.remove(prop);
+    }
+
+    /**
+     * @cfg {Object} store
+     * @private
+     */
+    /**
+     * @cfg {Object} columns
+     * @private
+     */
+});
+
 Ext.define('Rally.technicalservices.BooleanFieldComboBox',{
     extend: 'Rally.ui.combobox.FieldComboBox',
     alias: 'widget.tsbooleanfieldcombobox',
@@ -895,7 +1537,7 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
                     req = decodedValue[f.name].required;
                     order = order;
                 }
-                data.push({fieldName: f.name, displayName: f.displayName, display: dsp, defaultValue: def_value, required: req})
+                data.push({fieldName: f.name, displayName: f.displayName, display: dsp, defaultValue: def_value, required: req, fieldObj: f})
             }
         }, this);
 
@@ -947,6 +1589,8 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
         return true;
     },
     _getColumnCfgs: function() {
+        var me = this;
+
         var columns = [
             {
                 text: 'Field',
@@ -996,20 +1640,32 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
                         ]
                     }
                 }
+            },{
+                xtype: 'actioncolumn',
+                iconCls: 'icon-delete',
+                scope: this,
+                items: [{
+                    scope: this,
+                    handler: function(grid, row, col, x ,y ) {
+                        console.log('edit',grid, row, col, x, y);
+                    }
+                }]
             },
             {
                 text: 'Default Value',
                 dataIndex: 'defaultValue',
                 emptyCellText: '',
                 flex: 3,
-                editor: {
-                    xtype: 'rallytextfield'
+                editRenderer: function(m,v,r){
+                    return Rally.technicalservices.DetailEditorFactory.getEditor(r.get('fieldObj'));
                 }
             }
         ];
         return columns;
     },
-
+    _editRenderer: function(v,m,r){
+        console.log('editRenderer',v,m,r);
+    },
     /**
      * When a form asks for the data this field represents,
      * give it the name of this field and the ref of the selected project (or an empty string).
@@ -1215,7 +1871,8 @@ Ext.define('Rally.technicalservices.RequestForm', {
                                 this.fireEvent('save', result);
                             },
                             failure: function(msg){
-
+                                this.fireEvent('save', result);
+                                this.fireEvent('onerror', {message: msg});
                             }
                         });
                     } else {
@@ -1228,36 +1885,53 @@ Ext.define('Rally.technicalservices.RequestForm', {
             }
         });
     },
-    _updateAttachments: function(record, field_name, val){
+    _uploadAttachment: function(record, val){
         var deferred = Ext.create('Deft.Deferred');
+
+        var uploader = Ext.create('Rally.technicalservices.AttachmentUploader',{
+            record: record,
+            listeners: {
+                scope: this,
+                uploadprogress: function(percent){
+                    this.logger.log('upload %', percent);
+                },
+                uploaded: function(u){
+                    this.logger.log('attachment uploaded', u);
+                },
+                attached: function(attachmentRecord){
+                    this.logger.log('attachment attached', attachmentRecord);
+                    deferred.resolve();
+                },
+                failure: function(z){
+                    this.logger.log('failure',z);
+                    deferred.reject('Upload Failed');
+                }
+            }
+        });
+        uploader.uploadAttachments(val);
+        return deferred;
+    },
+    _updateAttachments: function(record, field_name, val){
         this.logger.log('_updateAttachments', record, field_name, val);
-        deferred.resolve();
-        //Rally.data.ModelFactory.getModel({
-        //    type: 'Attachment',
-        //    success: function(model) {
-        //        _.each(val, function(a){
-        //            var att = Ext.create(model, {});
-        //        });
-        //
-        //    }
-        //});
-        //
-        //
-        //var record = Ext.create(model, {
-        //    Name: 'Server crash',
-        //    State: 'Open',
-        //    Description: 'Worst defect ever'
-        //});
-        //The record can then be persisted to Rally using its save method:
-        //
-        //    record.save({
-        //        callback: function(result, operation) {
-        //            if(operation.wasSuccessful()) {
-        //                //Get the new defect's objectId
-        //                var objectId = result.get('ObjectID');
-        //            }
-        //        }
-        //    });
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+
+        var promises = [];
+       _.each(val, function(v){
+            var fn = function(){
+                me._uploadAttachment(record, v.get('content'));
+            }
+            promises.push(fn);
+        });
+
+        Deft.Chain.sequence(promises).then({
+            success: function(){
+                deferred.resolve();
+            },
+            failure: function(msg){
+                deferred.reject(msg);
+            }
+        });
         return deferred;
     }
 });

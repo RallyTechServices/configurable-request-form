@@ -143,7 +143,8 @@ Ext.define('Rally.technicalservices.RequestForm', {
                                 this.fireEvent('save', result);
                             },
                             failure: function(msg){
-
+                                this.fireEvent('save', result);
+                                this.fireEvent('onerror', {message: msg});
                             }
                         });
                     } else {
@@ -156,36 +157,53 @@ Ext.define('Rally.technicalservices.RequestForm', {
             }
         });
     },
-    _updateAttachments: function(record, field_name, val){
+    _uploadAttachment: function(record, val){
         var deferred = Ext.create('Deft.Deferred');
+
+        var uploader = Ext.create('Rally.technicalservices.AttachmentUploader',{
+            record: record,
+            listeners: {
+                scope: this,
+                uploadprogress: function(percent){
+                    this.logger.log('upload %', percent);
+                },
+                uploaded: function(u){
+                    this.logger.log('attachment uploaded', u);
+                },
+                attached: function(attachmentRecord){
+                    this.logger.log('attachment attached', attachmentRecord);
+                    deferred.resolve();
+                },
+                failure: function(z){
+                    this.logger.log('failure',z);
+                    deferred.reject('Upload Failed');
+                }
+            }
+        });
+        uploader.uploadAttachments(val);
+        return deferred;
+    },
+    _updateAttachments: function(record, field_name, val){
         this.logger.log('_updateAttachments', record, field_name, val);
-        deferred.resolve();
-        //Rally.data.ModelFactory.getModel({
-        //    type: 'Attachment',
-        //    success: function(model) {
-        //        _.each(val, function(a){
-        //            var att = Ext.create(model, {});
-        //        });
-        //
-        //    }
-        //});
-        //
-        //
-        //var record = Ext.create(model, {
-        //    Name: 'Server crash',
-        //    State: 'Open',
-        //    Description: 'Worst defect ever'
-        //});
-        //The record can then be persisted to Rally using its save method:
-        //
-        //    record.save({
-        //        callback: function(result, operation) {
-        //            if(operation.wasSuccessful()) {
-        //                //Get the new defect's objectId
-        //                var objectId = result.get('ObjectID');
-        //            }
-        //        }
-        //    });
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+
+        var promises = [];
+       _.each(val, function(v){
+            var fn = function(){
+                me._uploadAttachment(record, v.get('content'));
+            }
+            promises.push(fn);
+        });
+
+        Deft.Chain.sequence(promises).then({
+            success: function(){
+                deferred.resolve();
+            },
+            failure: function(msg){
+                deferred.reject(msg);
+            }
+        });
         return deferred;
     }
 });

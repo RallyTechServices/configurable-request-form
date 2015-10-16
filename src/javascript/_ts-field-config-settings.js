@@ -51,7 +51,7 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
                     req = decodedValue[f.name].required;
                     order = order;
                 }
-                data.push({fieldName: f.name, displayName: f.displayName, display: dsp, defaultValue: def_value, required: req})
+                data.push({fieldName: f.name, displayName: f.displayName, display: dsp, defaultValue: def_value, required: req, fieldObj: f})
             }
         }, this);
 
@@ -103,6 +103,8 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
         return true;
     },
     _getColumnCfgs: function() {
+        var me = this;
+
         var columns = [
             {
                 text: 'Field',
@@ -152,20 +154,32 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
                         ]
                     }
                 }
+            },{
+                xtype: 'actioncolumn',
+                iconCls: 'icon-delete',
+                scope: this,
+                items: [{
+                    scope: this,
+                    handler: function(grid, row, col, x ,y ) {
+                        console.log('edit',grid, row, col, x, y);
+                    }
+                }]
             },
             {
                 text: 'Default Value',
                 dataIndex: 'defaultValue',
                 emptyCellText: '',
                 flex: 3,
-                editor: {
-                    xtype: 'rallytextfield'
+                editRenderer: function(m,v,r){
+                    return Rally.technicalservices.DetailEditorFactory.getEditor(r.get('fieldObj'));
                 }
             }
         ];
         return columns;
     },
-
+    _editRenderer: function(v,m,r){
+        console.log('editRenderer',v,m,r);
+    },
     /**
      * When a form asks for the data this field represents,
      * give it the name of this field and the ref of the selected project (or an empty string).
