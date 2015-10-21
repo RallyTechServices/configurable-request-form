@@ -1,6 +1,6 @@
 Ext.define('Rally.technicalservices.AttachmentEditor',{
     extend: 'Ext.panel.Panel',
-    alias: 'widget.tsattachmentgrid',
+    alias: 'widget.tsattachmenteditor',
     height: 200,
     width: '100%',
     record: undefined,
@@ -13,7 +13,7 @@ Ext.define('Rally.technicalservices.AttachmentEditor',{
         this.callParent(arguments);
 
         this._store = Ext.create('Ext.data.Store',{
-            fields: ['filename'],
+            fields: ['filename','content','description'],
             data: []
         });
 
@@ -41,17 +41,12 @@ Ext.define('Rally.technicalservices.AttachmentEditor',{
 
 
     },
-    addFile: function(button, e, value){
-         //var reader = new FileReader();
-        //reader.readAsBinaryString(value, "UTF-8");
-        //reader.onload = function (evt) {
-        //    console.log('onload', evt.target.result);
-        this._store.add({filename: value, name: '', description: '', content: ''});
-        //}
-        //reader.onerror = function (evt) {
-        //    console.log('onload', evt.target.result);
-        //}
+    addFile: function(e, value, filepath){
+        var formData = new FormData();
+        formData.append('file', e.fileInputEl.dom.files[0]);
 
+        var filename = e.fileInputEl.dom.files[0].name || filepath.split(/\/|\\/).pop();
+        this._store.add({filename: filename, description: '', content: formData});
     },
     removeFile: function(grid, rowIndex, colIndex) {
         var rec = grid.getStore().getAt(rowIndex);
@@ -72,7 +67,16 @@ Ext.define('Rally.technicalservices.AttachmentEditor',{
             dataIndex: 'filename',
             text: 'File',
             flex: 1,
+            editor: {
+                xtype: 'filefield',
+                buttonConfig: {
+                    cls: 'rly-small secondary'
+                }
+            },
             renderer: function(v,m,r){
+                if (v == null){
+                    return 'Click to Add...'
+                }
                 return v;
             }
         },{
