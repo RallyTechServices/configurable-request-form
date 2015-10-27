@@ -2,10 +2,10 @@
 
     <title>Configurable Request Form</title>
     <!--  (c) 2014,2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Oct 27 2015 16:09:49 GMT-0600 (MDT) -->
+    <!--  Build Date: Tue Oct 27 2015 17:59:06 GMT-0600 (MDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Oct 27 2015 16:09:49 GMT-0600 (MDT)";
+        var APP_BUILD_DATE = "Tue Oct 27 2015 17:59:06 GMT-0600 (MDT)";
     </script>
     
     <script type="text/javascript" src="https://rally1.rallydev.com//apps/2.0/sdk-debug.js?apiKey=_PUT_APIKEY_HERE_"></script>
@@ -423,7 +423,21 @@ Ext.define('Rally.technicalservices.AttachmentEditor',{
             ]
         }, config));
     }
-
+    function buildTimeboxFilter(timebox) {
+        var filter = Ext.create('Rally.data.wsapi.Filter', {
+            property: 'State',
+            operator: '!=',
+            value: 'Accepted'
+        });
+        if (timebox && _.isString(timebox._refObjectName)) {
+            filter = filter.or(Ext.create('Rally.data.wsapi.Filter', {
+                property: 'Name',
+                operator: '=',
+                value: timebox._refObjectName
+            }));
+        }
+        return filter;
+    }
     function milestoneField(field, record, readOnly) {
         return Ext.create('Rally.ui.detail.view.MilestonesField', {
             field: field,
@@ -503,11 +517,11 @@ Ext.define('Rally.technicalservices.AttachmentEditor',{
 
             Iteration: function (field, record) {
 
-                currentIteration = record.get(field.name);
+                var currentIteration = record.get(field.name);
 
                 return Ext.create('Rally.ui.combobox.IterationComboBox', {
                     name: field.name,
-                    //value: currentIteration,
+                    value: currentIteration,
                     allowNoEntry: defaultAllowNoEntry(field, record),
                     showArrows: false,
                     defaultSelectionToFirst: true,
