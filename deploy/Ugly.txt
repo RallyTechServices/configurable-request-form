@@ -3,10 +3,10 @@
 <head>
     <title>Configurable Request Form</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Oct 16 2015 11:18:21 GMT-0600 (MDT) -->
+    <!--  Build Date: Tue Oct 27 2015 16:09:49 GMT-0600 (MDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Oct 16 2015 11:18:21 GMT-0600 (MDT)";
+        var APP_BUILD_DATE = "Tue Oct 27 2015 16:09:49 GMT-0600 (MDT)";
         var CHECKSUM = [%= checksum %];
     </script>
     
@@ -25,6 +25,9 @@
     <style type="text/css">
 
 .app {
+}
+.x-action-col-icon {
+    float: left;
 }
 .tsinfolink {
     position:absolute;

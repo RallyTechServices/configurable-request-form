@@ -201,10 +201,12 @@
             },
 
             Iteration: function (field, record) {
-                var currentIteration = record.get(field.name);
+
+                currentIteration = record.get(field.name);
+
                 return Ext.create('Rally.ui.combobox.IterationComboBox', {
                     name: field.name,
-                    value: currentIteration,
+                    //value: currentIteration,
                     allowNoEntry: defaultAllowNoEntry(field, record),
                     showArrows: false,
                     defaultSelectionToFirst: true,

@@ -239,6 +239,7 @@ Ext.define("configurable-request-form", {
     isExternal: function(){
         return typeof(this.getAppId()) == 'undefined';
     },
+
     //onSettingsUpdate:  Override
     onSettingsUpdate: function (settings){
         this.logger.log('onSettingsUpdate',settings);

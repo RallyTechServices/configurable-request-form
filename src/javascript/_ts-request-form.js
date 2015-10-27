@@ -58,7 +58,8 @@ Ext.define('Rally.technicalservices.RequestForm', {
         if (!_.isEmpty(this.formConfiguration)){
             _.each(this.formConfiguration, function(field_obj, field_name){
                 var model_field = model.getField(field_name);
-                if (model_field){
+                console.log('field_boj',field_obj.display, field_name, model_field && field_obj.display);
+                if (model_field && field_obj.display){
                     var item_id = field_name,
                         margin = 10,
                         field_label = model_field.displayName;
@@ -75,7 +76,9 @@ Ext.define('Rally.technicalservices.RequestForm', {
                     }
                     item.msgTarget = 'side';
                     item.on('boxready', this._resize, this);
+
                     this.add(item);
+
                 }
             }, this);
             this.doLayout();
@@ -94,10 +97,10 @@ Ext.define('Rally.technicalservices.RequestForm', {
     },
     _getNewRecord: function(model){
         var newFields = {};
-        Ext.each(this.formConfiguration, function(field_obj, field_name){
-            this.logger.log(field_name, field_obj);
+        Ext.Object.each(this.formConfiguration, function(field_name, field_obj){
+            this.logger.log('_getNewRecord',field_name, field_obj);
             if (field_obj.defaultValue){
-                newFields[field_name].setValue(field_obj.defaultValue);
+                newFields[field_name]=field_obj.defaultValue;
             }
         },this);
         this.logger.log('_getNewRecord', newFields);
@@ -109,7 +112,7 @@ Ext.define('Rally.technicalservices.RequestForm', {
         var exceptionFields = ["Attachments"],
             valid = true;
         _.each(this.formConfiguration, function(field_obj, field_name){
-            if (!Ext.Array.contains(exceptionFields, field_name)) {
+            if (!Ext.Array.contains(exceptionFields, field_name) && field_obj.display) {
                 this.logger.log('_updateNewRecord', field_name, this.down('#' + field_name));
 
                 var val = this.down('#' + field_name).getValue() || field_obj.defaultValue || null;
@@ -157,7 +160,7 @@ Ext.define('Rally.technicalservices.RequestForm', {
             }
         });
     },
-    _uploadAttachment: function(record, val){
+    _uploadAttachment2: function(record, val){
         var deferred = Ext.create('Deft.Deferred');
 
         var uploader = Ext.create('Rally.technicalservices.AttachmentUploader',{
@@ -191,7 +194,7 @@ Ext.define('Rally.technicalservices.RequestForm', {
         var promises = [];
        _.each(val, function(v){
             var fn = function(){
-                me._uploadAttachment(record, v.get('content'));
+                me._updateAttachment(record, v);
             }
             promises.push(fn);
         });
@@ -202,6 +205,49 @@ Ext.define('Rally.technicalservices.RequestForm', {
             },
             failure: function(msg){
                 deferred.reject(msg);
+            }
+        });
+        return deferred;
+    },
+    _updateAttachment: function(record, val){
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+
+        this.logger.log('_updateAttachment', val);
+
+        Rally.data.ModelFactory.getModel({
+            type: 'AttachmentContent',
+            success: function(model) {
+                var act = Ext.create(model, {
+                    Content: val.get('content')
+                });
+                act.save({
+                    callback: function(result, operation){
+                        me.logger.log('_updateAttachment AttachmentContent.save callback', result, operation);
+                        if (operation.wasSuccessful()){
+                            Rally.data.ModelFactory.getModel({
+                                type: 'Attachment',
+                                success: function(amodel) {
+                                    me.logger.log('_updateAttachment Attachment.model callback', amodel);
+                                    var at = Ext.create(amodel, {
+                                        Content: result.get('ObjectID'),
+                                        ContentType: val.get('contentType'),
+                                        Name: val.get('filename'),
+                                        Artifact: record.get('_ref')
+                                    });
+                                    at.save({
+                                        callback: function(result, operation){
+                                            me.logger.log('_updateAttachment Attachment.save callback', result, operation);
+                                            deferred.resolve();
+                                        }
+                                    });
+                                }
+                            });
+                        } else {
+                            deferred.reject('Unable to save content: ' + operation.error.errors.join(','));
+                        }
+                    }
+                });
             }
         });
         return deferred;
