@@ -13,7 +13,7 @@ Ext.define('Rally.technicalservices.AttachmentEditor',{
         this.callParent(arguments);
 
         this._store = Ext.create('Ext.data.Store',{
-            fields: ['filename','content','description'],
+            fields: ['filename','content','description','contentType'],
             data: []
         });
 
@@ -42,11 +42,25 @@ Ext.define('Rally.technicalservices.AttachmentEditor',{
 
     },
     addFile: function(e, value, filepath){
-        var formData = new FormData();
-        formData.append('file', e.fileInputEl.dom.files[0]);
+        //var formData = new FormData();
+        //formData.append('file', e.fileInputEl.dom.files[0]);
+        //console.log('formData', formData, 'file', e.fileInputEl.dom.files[0]);
+        //
+        var me = this;
+        var f = e.fileInputEl.dom.files[0];
+        var filename = f.name || filepath.split(/\/|\\/).pop(),
+            contentType = (f.type && f.type.length > 0) ? f.type : "text/plain";
+        var reader = new FileReader();
+        console.log('readAsBinaryString', e, f);
+        reader.onload = function(fi){
+            console.log('f onload', reader.result);
+            var content64 = window.btoa(((reader.result)));
+            console.log('f onload', content64);
+            me._store.add({filename: filename, description: '', content: content64, contentType: contentType});
+        }
+        reader.readAsBinaryString(f);
 
-        var filename = e.fileInputEl.dom.files[0].name || filepath.split(/\/|\\/).pop();
-        this._store.add({filename: filename, description: '', content: formData});
+
     },
     removeFile: function(grid, rowIndex, colIndex) {
         var rec = grid.getStore().getAt(rowIndex);

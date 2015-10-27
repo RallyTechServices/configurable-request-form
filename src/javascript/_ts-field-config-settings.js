@@ -17,6 +17,7 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
     },
     notAllowedFields: ['ScheduleState','Tags','PredecessorsAndSuccessors','Predecessors','Successors','Project','Milestones','Workspace','Changesets','Parent','PortfolioItem','DisplayColor'],
     fieldSubTpl: '<div id="{id}" class="settings-grid"></div>',
+    noDefaultValue: ['Attachments'],
 
     width: '100%',
     cls: 'column-settings',
@@ -57,7 +58,7 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
 
         data = _.sortBy(data, 'order');
         this._store = Ext.create('Ext.data.Store', {
-            fields: ['fieldName', 'displayName','display', 'defaultValue', 'required','order'],
+            fields: ['fieldName', 'displayName','display', 'defaultValue', 'required','order','fieldObj'],
             data: data
         });
 
@@ -69,6 +70,7 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
             showRowActionsColumn: false,
             store: this._store,
             height: 400,
+            width: this.getWidth() * 0.90,
             editingConfig: {
                 publishMessages: false
             },
@@ -79,6 +81,7 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
                 }
             }
         });
+      //  this.fireEvent('ready');
     },
     _isFieldAllowed: function(field){
         var forbiddenTypes = ['WEB_LINK'];
@@ -154,31 +157,63 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
                         ]
                     }
                 }
-            },{
+            }, {
+                text: 'Default Value',
+                flex: 3,
                 xtype: 'actioncolumn',
-                iconCls: 'icon-delete',
-                scope: this,
+                sortable: false,
+                menuDisabled: true,
+                renderer: function(v,m,r){
+                    var val= '<i>Default Values not Supported</i>',
+                        color = "gray";
+                    if (me._isAllowedDefaultValue(r)) {
+                        val = r.get('defaultValue') || '';
+                        color = "black";
+                    }
+                    return Ext.String.format('<span style="display: inline; font-size: 11px; padding-left:50px;line-height:15px;color:{0};">{1}</span>',color,val);
+
+
+                },
                 items: [{
-                    scope: this,
-                    handler: function(grid, row, col, x ,y ) {
-                        console.log('edit',grid, row, col, x, y);
+                    icon: 'extjs/examples/shared/icons/fam/cog_edit.png',  // Use a URL in the icon config
+                    tooltip: 'Edit',
+                    handler: function (grid, rowIndex, colIndex) {
+                        var rec = grid.getStore().getAt(rowIndex);
+                        me.showEditor(rec);
+                    },
+                    isDisabled: function(grid, row, col, item, record){
+                        return !me._isAllowedDefaultValue(record);
+                    }
+                }, {
+                    icon: 'extjs/examples/restful/images/delete.png',
+                    tooltip: 'Delete',
+                    handler: function (grid, rowIndex, colIndex) {
+                        var rec = grid.getStore().getAt(rowIndex);
+                        rec.set('defaultValue', null);
+                    },
+                    isDisabled: function(grid, row, col, item, record){
+                        return !me._isAllowedDefaultValue(record);
                     }
                 }]
-            },
-            {
-                text: 'Default Value',
-                dataIndex: 'defaultValue',
-                emptyCellText: '',
-                flex: 3,
-                editRenderer: function(m,v,r){
-                    return Rally.technicalservices.DetailEditorFactory.getEditor(r.get('fieldObj'));
-                }
             }
+
         ];
         return columns;
     },
-    _editRenderer: function(v,m,r){
-        console.log('editRenderer',v,m,r);
+    _isAllowedDefaultValue: function(record){
+
+        var noDefaultValue = ['Attachments'];
+        if (Ext.Array.contains(noDefaultValue, record.get('fieldName'))){
+            return false;
+        }
+        return true;
+    },
+    showEditor: function(record){
+        console.log('showEditor')
+        Ext.create('Rally.technicalservices.DynamicCellEditor',{
+            record: record,
+            context: Rally.getApp().getContext()
+        });
     },
     /**
      * When a form asks for the data this field represents,
@@ -195,11 +230,12 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
         var mappings = {},
             order = 1;
         this._store.each(function(record) {
-            if (record.get('display')) {
+            if (record.get('display') || record.get('required') || record.get('defaultValue')) {
                 mappings[record.get('fieldName')] = {
                     required: record.get('required'),
                     defaultValue: record.get('defaultValue'),
-                    order: order++
+                    order: order++,
+                    display: record.get('display')
                 };
             }
         }, this);

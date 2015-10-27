@@ -122,7 +122,21 @@
             ]
         }, config));
     }
-
+    function buildTimeboxFilter(timebox) {
+        var filter = Ext.create('Rally.data.wsapi.Filter', {
+            property: 'State',
+            operator: '!=',
+            value: 'Accepted'
+        });
+        if (timebox && _.isString(timebox._refObjectName)) {
+            filter = filter.or(Ext.create('Rally.data.wsapi.Filter', {
+                property: 'Name',
+                operator: '=',
+                value: timebox._refObjectName
+            }));
+        }
+        return filter;
+    }
     function milestoneField(field, record, readOnly) {
         return Ext.create('Rally.ui.detail.view.MilestonesField', {
             field: field,
@@ -201,7 +215,9 @@
             },
 
             Iteration: function (field, record) {
+
                 var currentIteration = record.get(field.name);
+
                 return Ext.create('Rally.ui.combobox.IterationComboBox', {
                     name: field.name,
                     value: currentIteration,
