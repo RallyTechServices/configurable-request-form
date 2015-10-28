@@ -175,7 +175,8 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
 
                 },
                 items: [{
-                    icon: 'extjs/examples/shared/icons/fam/cog_edit.png',  // Use a URL in the icon config
+                    //iconCls: "picto icon-edit",
+                    icon: '/slm/images/icon_edit_view.gif',
                     tooltip: 'Edit',
                     handler: function (grid, rowIndex, colIndex) {
                         var rec = grid.getStore().getAt(rowIndex);
@@ -185,7 +186,7 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
                         return !me._isAllowedDefaultValue(record);
                     }
                 }, {
-                    icon: 'extjs/examples/restful/images/delete.png',
+                    icon:  '/slm/images/icon_delete.gif',
                     tooltip: 'Delete',
                     handler: function (grid, rowIndex, colIndex) {
                         var rec = grid.getStore().getAt(rowIndex);
