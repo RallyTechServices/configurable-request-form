@@ -58,7 +58,7 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
 
         data = _.sortBy(data, 'order');
         this._store = Ext.create('Ext.data.Store', {
-            fields: ['fieldName', 'displayName','display', 'defaultValue', 'required','order','fieldObj'],
+            fields: ['fieldName', 'displayName','display', 'defaultValue', 'defaultDisplayValue','required','order','fieldObj'],
             data: data
         });
 
@@ -167,7 +167,7 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
                     var val= '<i>Default Values not Supported</i>',
                         color = "gray";
                     if (me._isAllowedDefaultValue(r)) {
-                        val = r.get('defaultValue') || '';
+                        val = r.get('defaultDisplayValue') || '';
                         color = "black";
                     }
                     return Ext.String.format('<span style="display: inline; font-size: 11px; padding-left:50px;line-height:15px;color:{0};">{1}</span>',color,val);
@@ -210,7 +210,6 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
         return true;
     },
     showEditor: function(record){
-        console.log('showEditor')
         Ext.create('Rally.technicalservices.DynamicCellEditor',{
             record: record,
             context: Rally.getApp().getContext()
