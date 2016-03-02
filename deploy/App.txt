@@ -3,11 +3,11 @@
 <head>
     <title>Configurable Request Form</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Oct 27 2015 18:15:21 GMT-0600 (MDT) -->
+    <!--  Build Date: Wed Mar 02 2016 10:06:37 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Oct 27 2015 18:15:21 GMT-0600 (MDT)";
-        var CHECKSUM = 83534743735;
+        var APP_BUILD_DATE = "Wed Mar 02 2016 10:06:37 GMT-0800 (PST)";
+        var CHECKSUM = 74277320826;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -910,13 +910,13 @@ Ext.define('Rally.technicalservices.DynamicCellEditor', {
              */
             'edit'
         );
-        console.log('initcomponent', this.record);
+        //console.log('initcomponent', this.record);
 
         var editor = this._getEditor(this.record);
         if (this.record.get('defaultValue') && this.record.get('defaultValue').length > 0){
             editor.value = this.record.get('defaultValue') || null;
         }
-        console.log('editor',editor, this.record);
+        //console.log('editor',editor, this.record);
         this.add(editor);
 
         this.addDocked({
@@ -973,7 +973,9 @@ Ext.define('Rally.technicalservices.DynamicCellEditor', {
                 config.field = fieldName;
             }
             if (field.attributeDefinition.AttributeType === 'BOOLEAN'){
-                return field.editor;
+                var editor = field.editor;
+                editor.itemId = 'default';
+                return editor
             }
             if (field.attributeDefinition.AttributeType === 'QUANTITY'){
                 config.xtype = 'rallynumberfield';
@@ -989,108 +991,18 @@ Ext.define('Rally.technicalservices.DynamicCellEditor', {
     },
     _onApplyClicked: function() {
         var valueField = this.down('#default');
+     //   console.log('_onApplyClicked', valueField, valueField.getValue());
         if (this.record.get('defaultValue') !== valueField.getValue()){
             this.record.set('defaultValue', valueField.getValue());
-            //this.record.set('defaultValueDisplay', valueField.getDisplayValue() || valueField.getValue());
+            if (valueField.displayField && valueField.getRecord()){
+                this.record.set('defaultDisplayValue', valueField.getRecord().get(valueField.displayField) || valueField.getValue());
+            } else {
+                this.record.set('defaultDisplayValue', valueField.getValue());
+            }
         }
 
-        //this.fireEvent('edit', this, args);
         this.close();
-    },
-
-    //_fieldIsBulkEditable: function(field) {
-    //    var fieldDefAttr = field.attributeDefinition;
-    //    return field.editor
-    //        && !field.readOnly
-    //        && !field.hidden
-    //        && !field.isMappedFromArtifact
-    //        && ((fieldDefAttr.AttributeType === 'OBJECT' && fieldDefAttr.Constrained) || !_.contains(['TEXT', 'COLLECTION'], fieldDefAttr.AttributeType))
-    //        && !this._isBlackListed(field)
-    //        && this._fieldCanBeEditedForAllRecords(field);
-    //},
-    //
-    //_isBlackListed: function(field) {
-    //    var blackListForType = this.self.BLACKLISTED_FIELDS[field.modelType];
-    //    return blackListForType && _.contains(blackListForType, field.name);
-    //},
-    //_prepareDropdownEditorConfig: function(editorConfig) {
-    //    return Ext.merge(editorConfig, {
-    //        defaultSelectionPosition: null,
-    //        editable: true,
-    //        emptyText: 'Choose Value...',
-    //        listeners: {
-    //            select: function(cmp) {
-    //                this.down('#applyButton').setDisabled(false);
-    //            },
-    //            scope: this
-    //        },
-    //        storeConfig: {
-    //            autoLoad: true,
-    //            context: this.records[0].self.context,
-    //            requester: this
-    //        },
-    //        value: null
-    //    });
-    //},
-    //
-    //_prepareTextEditorConfig: function(editorConfig) {
-    //    return Ext.merge(editorConfig, {
-    //        emptyText: 'Enter Value...',
-    //        listeners: {
-    //            validitychange: function (cmp, isValid) {
-    //                this.down('#applyButton').setDisabled(!isValid);
-    //            },
-    //            scope: this
-    //        },
-    //        plugins: ['rallyfieldvalidationui']
-    //    });
-    //},
-    //
-    //_prepareEditor: function(fieldDef) {
-    //    var editorConfig = fieldDef.editor;
-    //
-    //    if (editorConfig.field && editorConfig.field.xtype) {
-    //        editorConfig = editorConfig.field;
-    //    }
-    //
-    //    editorConfig = Ext.apply({
-    //        itemId: 'editValue',
-    //        width: 150,
-    //        enableKeyEvents: true,
-    //        listeners: {
-    //            keyup: function(cmp, e) {
-    //                if (!this.down('#applyButton').isDisabled() && e.getKey() === Ext.EventObject.ENTER) {
-    //                    this._onApplyClicked();
-    //                }
-    //            }
-    //        }
-    //    }, editorConfig);
-    //
-    //    if (this._isDropdownField(fieldDef)) {
-    //        this.down('#applyButton').setDisabled(true);
-    //        editorConfig = this._prepareDropdownEditorConfig(editorConfig);
-    //    } else {
-    //        this.down('#applyButton').setDisabled(fieldDef.required);
-    //        editorConfig = this._prepareTextEditorConfig(editorConfig);
-    //    }
-    //
-    //    var field = this.down('#form-container').add(editorConfig);
-    //
-    //    if (Ext.isFunction(field.setProject)) {
-    //        field.setProject(this.records[0].self.context.project || Rally.environment.getContext().getProjectRef());
-    //    }
-    //},
-    //
-    //_onFieldSelect: function(combo, selected) {
-    //    var valueField = this.down('#editValue'),
-    //        fieldDef = this.records[0].self.getField(selected[0].get(combo.valueField));
-    //
-    //    if (valueField) {
-    //        valueField.destroy();
-    //    }
-    //
-    //    this._prepareEditor(fieldDef);
-    //}
+    }
 });
 Ext.define('Rally.technicalservices.BooleanFieldComboBox',{
     extend: 'Rally.ui.combobox.FieldComboBox',
@@ -1152,7 +1064,7 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
 
         data = _.sortBy(data, 'order');
         this._store = Ext.create('Ext.data.Store', {
-            fields: ['fieldName', 'displayName','display', 'defaultValue', 'required','order','fieldObj'],
+            fields: ['fieldName', 'displayName','display', 'defaultValue', 'defaultDisplayValue','required','order','fieldObj'],
             data: data
         });
 
@@ -1261,7 +1173,7 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
                     var val= '<i>Default Values not Supported</i>',
                         color = "gray";
                     if (me._isAllowedDefaultValue(r)) {
-                        val = r.get('defaultValue') || '';
+                        val = r.get('defaultDisplayValue') || '';
                         color = "black";
                     }
                     return Ext.String.format('<span style="display: inline; font-size: 11px; padding-left:50px;line-height:15px;color:{0};">{1}</span>',color,val);
@@ -1304,7 +1216,6 @@ Ext.define('Rally.technicalservices.settings.FormConfiguration',{
         return true;
     },
     showEditor: function(record){
-        console.log('showEditor')
         Ext.create('Rally.technicalservices.DynamicCellEditor',{
             record: record,
             context: Rally.getApp().getContext()
@@ -1431,7 +1342,6 @@ Ext.define('Rally.technicalservices.RequestForm', {
         if (!_.isEmpty(this.formConfiguration)){
             _.each(this.formConfiguration, function(field_obj, field_name){
                 var model_field = model.getField(field_name);
-                console.log('field_boj',field_obj.display, field_name, model_field && field_obj.display);
                 if (model_field && field_obj.display){
                     var item_id = field_name,
                         margin = 10,
@@ -1533,32 +1443,6 @@ Ext.define('Rally.technicalservices.RequestForm', {
             }
         });
     },
-    _uploadAttachment2: function(record, val){
-        var deferred = Ext.create('Deft.Deferred');
-
-        var uploader = Ext.create('Rally.technicalservices.AttachmentUploader',{
-            record: record,
-            listeners: {
-                scope: this,
-                uploadprogress: function(percent){
-                    this.logger.log('upload %', percent);
-                },
-                uploaded: function(u){
-                    this.logger.log('attachment uploaded', u);
-                },
-                attached: function(attachmentRecord){
-                    this.logger.log('attachment attached', attachmentRecord);
-                    deferred.resolve();
-                },
-                failure: function(z){
-                    this.logger.log('failure',z);
-                    deferred.reject('Upload Failed');
-                }
-            }
-        });
-        uploader.uploadAttachments(val);
-        return deferred;
-    },
     _updateAttachments: function(record, field_name, val){
         this.logger.log('_updateAttachments', record, field_name, val);
         var deferred = Ext.create('Deft.Deferred');
@@ -1610,8 +1494,13 @@ Ext.define('Rally.technicalservices.RequestForm', {
                                     });
                                     at.save({
                                         callback: function(result, operation){
-                                            me.logger.log('_updateAttachment Attachment.save callback', result, operation);
-                                            deferred.resolve();
+                                            if (operation.wasSuccessful()){
+                                                me.logger.log('_updateAttachment Attachment.save callback', result, operation);
+                                                deferred.resolve();
+                                            } else {
+                                                deferred.reject('Error saving Attachment:  ' + operation.error && operation.error.errors.join(','));
+                                            }
+
                                         }
                                     });
                                 }
@@ -1794,6 +1683,11 @@ Ext.define("configurable-request-form", {
             models: [model],
             autoLoad: true,
             enableHierarchy: true,
+            filters: [{
+                property: 'ScheduleState',
+                operator: '<',
+                value: 'Accepted'
+            }],
             sorters: [
                 {
                     property: 'CreationDate',
@@ -1822,7 +1716,7 @@ Ext.define("configurable-request-form", {
                     ],
                     gridConfig: {
                         store: store,
-                        columnCfgs: ['Name','ScheduleState']
+                        columnCfgs: this.getColumnCfgs()
                     },
                     height: this.getHeight()
                 });
@@ -1839,7 +1733,18 @@ Ext.define("configurable-request-form", {
             scope: this
         });
     },
-
+    getColumnCfgs: function(){
+        return [{
+            dataIndex: 'Name',
+            text: 'Name'
+        },{
+            dataIndex: 'ScheduleState',
+            text: 'Name'
+        },'Release',{
+            dataIndex: 'c_StakeholderName',
+            text: 'Stakeholder Name'
+        }];
+    },
     _onNewRequest: function() {
         this.logger.log('_onNewRequest');
         this._buildForm(this.model, this.formConfiguration)

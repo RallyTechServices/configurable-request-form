@@ -58,7 +58,6 @@ Ext.define('Rally.technicalservices.RequestForm', {
         if (!_.isEmpty(this.formConfiguration)){
             _.each(this.formConfiguration, function(field_obj, field_name){
                 var model_field = model.getField(field_name);
-                console.log('field_boj',field_obj.display, field_name, model_field && field_obj.display);
                 if (model_field && field_obj.display){
                     var item_id = field_name,
                         margin = 10,
@@ -160,32 +159,6 @@ Ext.define('Rally.technicalservices.RequestForm', {
             }
         });
     },
-    _uploadAttachment2: function(record, val){
-        var deferred = Ext.create('Deft.Deferred');
-
-        var uploader = Ext.create('Rally.technicalservices.AttachmentUploader',{
-            record: record,
-            listeners: {
-                scope: this,
-                uploadprogress: function(percent){
-                    this.logger.log('upload %', percent);
-                },
-                uploaded: function(u){
-                    this.logger.log('attachment uploaded', u);
-                },
-                attached: function(attachmentRecord){
-                    this.logger.log('attachment attached', attachmentRecord);
-                    deferred.resolve();
-                },
-                failure: function(z){
-                    this.logger.log('failure',z);
-                    deferred.reject('Upload Failed');
-                }
-            }
-        });
-        uploader.uploadAttachments(val);
-        return deferred;
-    },
     _updateAttachments: function(record, field_name, val){
         this.logger.log('_updateAttachments', record, field_name, val);
         var deferred = Ext.create('Deft.Deferred');
@@ -237,8 +210,13 @@ Ext.define('Rally.technicalservices.RequestForm', {
                                     });
                                     at.save({
                                         callback: function(result, operation){
-                                            me.logger.log('_updateAttachment Attachment.save callback', result, operation);
-                                            deferred.resolve();
+                                            if (operation.wasSuccessful()){
+                                                me.logger.log('_updateAttachment Attachment.save callback', result, operation);
+                                                deferred.resolve();
+                                            } else {
+                                                deferred.reject('Error saving Attachment:  ' + operation.error && operation.error.errors.join(','));
+                                            }
+
                                         }
                                     });
                                 }
