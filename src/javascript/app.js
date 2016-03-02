@@ -147,6 +147,11 @@ Ext.define("configurable-request-form", {
             models: [model],
             autoLoad: true,
             enableHierarchy: true,
+            filters: [{
+                property: 'ScheduleState',
+                operator: '<',
+                value: 'Accepted'
+            }],
             sorters: [
                 {
                     property: 'CreationDate',
@@ -175,7 +180,7 @@ Ext.define("configurable-request-form", {
                     ],
                     gridConfig: {
                         store: store,
-                        columnCfgs: ['Name','ScheduleState']
+                        columnCfgs: ['Name','ScheduleState','Release', 'c_StakeholderName']
                     },
                     height: this.getHeight()
                 });

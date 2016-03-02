@@ -2,10 +2,10 @@
 
     <title>Configurable Request Form</title>
     <!--  (c) 2014,2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Oct 28 2015 10:42:46 GMT-0600 (MDT) -->
+    <!--  Build Date: Wed Mar 02 2016 09:53:33 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Oct 28 2015 10:42:46 GMT-0600 (MDT)";
+        var APP_BUILD_DATE = "Wed Mar 02 2016 09:53:33 GMT-0800 (PST)";
     </script>
     
     <script type="text/javascript" src="https://rally1.rallydev.com//apps/2.0/sdk-debug.js?apiKey=_PUT_APIKEY_HERE_"></script>
@@ -1702,6 +1702,11 @@ Ext.define("configurable-request-form", {
             models: [model],
             autoLoad: true,
             enableHierarchy: true,
+            filters: [{
+                property: 'ScheduleState',
+                operator: '<',
+                value: 'Accepted'
+            }],
             sorters: [
                 {
                     property: 'CreationDate',
@@ -1730,7 +1735,7 @@ Ext.define("configurable-request-form", {
                     ],
                     gridConfig: {
                         store: store,
-                        columnCfgs: ['Name','ScheduleState']
+                        columnCfgs: ['Name','ScheduleState','Release', 'c_StakeholderName']
                     },
                     height: this.getHeight()
                 });
