@@ -180,7 +180,7 @@ Ext.define("configurable-request-form", {
                     ],
                     gridConfig: {
                         store: store,
-                        columnCfgs: ['Name','ScheduleState','Release', 'c_StakeholderName']
+                        columnCfgs: this.getColumnCfgs()
                     },
                     height: this.getHeight()
                 });
@@ -197,7 +197,18 @@ Ext.define("configurable-request-form", {
             scope: this
         });
     },
-
+    getColumnCfgs: function(){
+        return [{
+            dataIndex: 'Name',
+            text: 'Name'
+        },{
+            dataIndex: 'ScheduleState',
+            text: 'Name'
+        },'Release',{
+            dataIndex: 'c_StakeholderName',
+            text: 'Stakeholder Name'
+        }];
+    },
     _onNewRequest: function() {
         this.logger.log('_onNewRequest');
         this._buildForm(this.model, this.formConfiguration)

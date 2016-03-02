@@ -2,10 +2,10 @@
 
     <title>Configurable Request Form</title>
     <!--  (c) 2014,2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Mar 02 2016 09:53:33 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Mar 02 2016 10:06:37 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Mar 02 2016 09:53:33 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Wed Mar 02 2016 10:06:37 GMT-0800 (PST)";
     </script>
     
     <script type="text/javascript" src="https://rally1.rallydev.com//apps/2.0/sdk-debug.js?apiKey=_PUT_APIKEY_HERE_"></script>
@@ -1735,7 +1735,7 @@ Ext.define("configurable-request-form", {
                     ],
                     gridConfig: {
                         store: store,
-                        columnCfgs: ['Name','ScheduleState','Release', 'c_StakeholderName']
+                        columnCfgs: this.getColumnCfgs()
                     },
                     height: this.getHeight()
                 });
@@ -1752,7 +1752,18 @@ Ext.define("configurable-request-form", {
             scope: this
         });
     },
-
+    getColumnCfgs: function(){
+        return [{
+            dataIndex: 'Name',
+            text: 'Name'
+        },{
+            dataIndex: 'ScheduleState',
+            text: 'Name'
+        },'Release',{
+            dataIndex: 'c_StakeholderName',
+            text: 'Stakeholder Name'
+        }];
+    },
     _onNewRequest: function() {
         this.logger.log('_onNewRequest');
         this._buildForm(this.model, this.formConfiguration)
